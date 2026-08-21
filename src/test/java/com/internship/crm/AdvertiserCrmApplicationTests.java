@@ -22,8 +22,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.internship.crm.testsupport.ReadableTestResultExtension;
+import com.internship.crm.auth.token.JwtTokenService;
 
-@SpringBootTest
+@SpringBootTest(properties =
+        "security.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 @DisplayName("应用与数据库初始化")
 @ExtendWith(ReadableTestResultExtension.class)
 class AdvertiserCrmApplicationTests {
@@ -40,8 +42,11 @@ class AdvertiserCrmApplicationTests {
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
 
+	@Autowired
+	private JwtTokenService jwtTokenService;
+
 	@Test
-	@DisplayName("Spring 配置、PostgreSQL、Flyway V1 和三张核心表均正常")
+	@DisplayName("Spring 配置、JWT、PostgreSQL、Flyway V1 和三张核心表均正常")
 	void applicationContextAndDatabaseInitializationStateAreValid() throws SQLException {
 		MigrationInfo coreTableMigration = Arrays.stream(flyway.info().applied())
 				.filter(migration -> migration.getVersion() != null)
@@ -60,6 +65,7 @@ class AdvertiserCrmApplicationTests {
 		try (Connection connection = dataSource.getConnection()) {
 			assertAll("应用与数据库初始化状态检查",
 					() -> assertNotNull(applicationContext, "Spring 应用上下文应当成功加载"),
+					() -> assertNotNull(jwtTokenService, "JWT 签发服务应当成功加载"),
 					() -> assertEquals("PostgreSQL", connection.getMetaData().getDatabaseProductName(),
 							"应用应当成功连接 PostgreSQL"),
 					() -> assertEquals(MigrationState.SUCCESS, coreTableMigration.getState(),
