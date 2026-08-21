@@ -6,12 +6,14 @@ import com.internship.crm.user.api.CreateUserRequest;
 import com.internship.crm.user.api.UpdateUserRequest;
 import com.internship.crm.user.api.UserResponse;
 import com.internship.crm.user.domain.User;
+import com.internship.crm.user.domain.UserRole;
 import com.internship.crm.user.domain.UserStatus;
 import com.internship.crm.user.error.UserErrorCode;
 import com.internship.crm.user.mapper.UserMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,23 +31,31 @@ public class UserService {
 
     @Transactional
     public UserResponse create(CreateUserRequest request) {
-        String username = request.username().trim();
-        String email = normalizeEmail(request.email());
-        ensureUsernameAvailable(username);
-        ensureEmailAvailable(email);
+        return UserResponse.from(createUser(
+                request.username(),
+                request.password(),
+                request.displayName(),
+                request.email(),
+                request.role(),
+                request.status() == null ? UserStatus.ACTIVE : request.status()));
+    }
 
+    @Transactional
+    public User registerOperator(String username, String password, String displayName, String email) {
+        return createUser(username, password, displayName, email, UserRole.OPERATOR, UserStatus.ACTIVE);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<User> findByUsername(String username) {
+        return userMapper.findByUsernameIgnoreCase(username);
+    }
+
+    @Transactional
+    public void recordSuccessfulLogin(User user) {
         OffsetDateTime now = OffsetDateTime.now();
-        User user = new User();
-        user.setUsername(username);
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setDisplayName(request.displayName().trim());
-        user.setEmail(email);
-        user.setRole(request.role());
-        user.setStatus(request.status() == null ? UserStatus.ACTIVE : request.status());
-        user.setCreatedAt(now);
+        user.setLastLoginAt(now);
         user.setUpdatedAt(now);
-        userMapper.insert(user);
-        return UserResponse.from(user);
+        userMapper.updateById(user);
     }
 
     @Transactional(readOnly = true)
@@ -129,10 +139,37 @@ public class UserService {
         if (email == null) {
             return null;
         }
-        return email.trim().toLowerCase(Locale.ROOT);
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private boolean equalsIgnoreCase(String first, String second) {
         return first == null ? second == null : first.equalsIgnoreCase(second);
+    }
+
+    private User createUser(
+            String rawUsername,
+            String password,
+            String rawDisplayName,
+            String rawEmail,
+            UserRole role,
+            UserStatus status) {
+        String username = rawUsername.trim();
+        String email = normalizeEmail(rawEmail);
+        ensureUsernameAvailable(username);
+        ensureEmailAvailable(email);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        User user = new User();
+        user.setUsername(username);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setDisplayName(rawDisplayName.trim());
+        user.setEmail(email);
+        user.setRole(role);
+        user.setStatus(status);
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        userMapper.insert(user);
+        return user;
     }
 }
