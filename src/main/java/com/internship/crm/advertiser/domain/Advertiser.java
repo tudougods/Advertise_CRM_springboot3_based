@@ -1,6 +1,7 @@
 package com.internship.crm.advertiser.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -15,21 +16,24 @@ public class Advertiser {
 
     private String name;
 
-    @TableField("registration_no")
+    @TableField(value = "registration_no", updateStrategy = FieldStrategy.ALWAYS)
     private String registrationNo;
 
-    @TableField("category_id")
+    @TableField(value = "category_id", updateStrategy = FieldStrategy.ALWAYS)
     private Long categoryId;
 
-    @TableField("owner_user_id")
+    @TableField(value = "owner_user_id", updateStrategy = FieldStrategy.ALWAYS)
     private Long ownerUserId;
 
     private AdvertiserStatus status;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String website;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String address;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String description;
 
     @TableField("created_at")
