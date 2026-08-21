@@ -1,6 +1,6 @@
 # Advertiser CRM Backend
 
-广告商 CRM 后端原型的 Spring Boot 模块化单体骨架。当前阶段包含 Sprint 1 核心表的 Flyway 初始化迁移，但不包含实体、Mapper、Service、Controller 或 JWT 逻辑。
+广告商 CRM 后端原型的 Spring Boot 模块化单体项目。当前已包含 Sprint 1 核心表迁移、公共 Web 规范，以及用户 CRUD、注册登录、BCrypt、JWT 和 RBAC 生产代码。
 
 ## 技术基线
 
@@ -29,7 +29,13 @@ docker compose up -d postgres pgadmin
 
 pgAdmin 登录凭据只用于进入管理页面；PostgreSQL 凭据用于连接业务数据库，两者相互独立。首次创建 pgAdmin 数据卷后，修改环境变量不会自动重置已有的 pgAdmin 管理员密码。
 
-启动应用：
+首次复制 `.env.example` 后，还需要为本机生成 JWT 签名密钥：
+
+```powershell
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+把命令生成的值填入本机 `.env` 的 `JWT_SECRET`。该值不得提交到 Git；不同开发环境应使用不同密钥。然后启动应用：
 
 ```powershell
 .\mvnw.cmd spring-boot:run
@@ -55,6 +61,28 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 - 健康检查：http://localhost:8080/actuator/health
 - Swagger UI：http://localhost:8080/swagger-ui.html
 - OpenAPI JSON：http://localhost:8080/v3/api-docs
+
+## 用户认证与权限
+
+当前用户接口：
+
+- `POST /api/v1/auth/register`：公开注册 `OPERATOR` 用户。
+- `POST /api/v1/auth/login`：登录并取得 Bearer JWT。
+- `POST /api/v1/users`：管理员创建用户。
+- `GET /api/v1/users`：管理员查询用户列表。
+- `GET /api/v1/users/{id}`：管理员查询用户详情。
+- `PATCH /api/v1/users/{id}`：管理员修改用户、角色或状态。
+- `DELETE /api/v1/users/{id}`：管理员物理删除用户。
+
+公开注册不会创建管理员。仅在本地开发数据库首次初始化管理员时，先注册一个普通账号，再通过 pgAdmin Query Tool 或 `psql` 执行：
+
+```sql
+UPDATE users
+SET role = 'ADMIN', updated_at = CURRENT_TIMESTAMP
+WHERE LOWER(username) = LOWER('替换为你的用户名');
+```
+
+重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；合法的 `OPERATOR` Token 访问这些接口会返回 403。账号被设为 `DISABLED` 后，现有 Token 也不能继续访问受保护接口。
 
 停止数据库和管理页面：
 
