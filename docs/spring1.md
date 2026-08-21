@@ -40,7 +40,7 @@ git switch -c feature/<task-name>
 | 1 | 数据库设计 | `sprint-1-database-design` | 已合并，旧分支已删除 |
 | 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
 | 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已完成并合并 |
-| 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 生产代码已实现，待测试与 PR |
+| 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 生产代码和 44 项自动化测试已通过，待 Swagger 验收与 PR |
 | 5 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |
 | 6 | 广告主管理 | `feature/advertiser-management` | 待开始 |
 | 7 | Sprint 联调与验收 | `test/sprint1-integration` | 待开始 |
