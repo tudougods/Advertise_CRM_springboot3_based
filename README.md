@@ -1,6 +1,6 @@
 # Advertiser CRM Backend
 
-广告商 CRM 后端原型的 Spring Boot 模块化单体骨架。当前阶段只包含工程基础设施，不包含业务表、实体、Mapper、Service、Controller 或 JWT 逻辑。
+广告商 CRM 后端原型的 Spring Boot 模块化单体骨架。当前阶段包含 Sprint 1 核心表的 Flyway 初始化迁移，但不包含实体、Mapper、Service、Controller 或 JWT 逻辑。
 
 ## 技术基线
 
@@ -15,13 +15,19 @@
 
 ## 本地启动
 
-启动 PostgreSQL：
+启动 PostgreSQL 和 pgAdmin：
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d postgres pgadmin
 ```
 
 默认将容器的 PostgreSQL `5432` 端口映射到本机 `15432`，避免与本机已有 PostgreSQL 服务冲突。
+
+浏览器打开 http://localhost:5150 进入 pgAdmin。登录邮箱和密码分别读取项目根目录 `.env` 中的 `PGADMIN_DEFAULT_EMAIL` 和 `PGADMIN_DEFAULT_PASSWORD`，真实凭据不写入仓库。pgAdmin 端口只绑定本机地址，局域网中的其他设备无法直接访问。
+
+登录后展开 `Local Development`，选择预置的 `Advertiser CRM Local`。首次连接时请输入项目根目录 `.env` 中的 `POSTGRES_PASSWORD`。首次克隆项目时，先将 `.env.example` 复制为 `.env`，再替换其中的 `change_me`；不要提交 `.env`。
+
+pgAdmin 登录凭据只用于进入管理页面；PostgreSQL 凭据用于连接业务数据库，两者相互独立。首次创建 pgAdmin 数据卷后，修改环境变量不会自动重置已有的 pgAdmin 管理员密码。
 
 启动应用：
 
@@ -29,13 +35,28 @@ docker compose up -d postgres
 .\mvnw.cmd spring-boot:run
 ```
 
+应用连接数据库时，Flyway 会自动执行 `src/main/resources/db/migration` 中尚未执行的迁移。首次初始化完成后，可以检查数据表和迁移记录：
+
+```powershell
+docker compose exec postgres psql -U crm_user -d advertiser_crm -c "\dt"
+docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+```
+
+如只需要查看简洁测试结果，可以运行：
+
+```powershell
+.\scripts\test.cmd
+```
+
+测试成功时会分行输出各项检查结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
+
 验证地址：
 
 - 健康检查：http://localhost:8080/actuator/health
 - Swagger UI：http://localhost:8080/swagger-ui.html
 - OpenAPI JSON：http://localhost:8080/v3/api-docs
 
-停止数据库：
+停止数据库和管理页面：
 
 ```powershell
 docker compose down
@@ -65,4 +86,5 @@ com.internship.crm
 
 ## 设计文档
 
+- [Sprint 1 开发流程](docs/spring1.md)
 - [Sprint 1 数据库设计](docs/database-design.md)
