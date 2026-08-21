@@ -50,6 +50,11 @@ public class UserService {
         return userMapper.findByUsernameIgnoreCase(username);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<User> findEntityById(Long id) {
+        return Optional.ofNullable(userMapper.selectById(id));
+    }
+
     @Transactional
     public void recordSuccessfulLogin(User user) {
         OffsetDateTime now = OffsetDateTime.now();

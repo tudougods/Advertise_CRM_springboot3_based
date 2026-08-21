@@ -6,6 +6,7 @@ import com.internship.crm.user.api.UpdateUserRequest;
 import com.internship.crm.user.api.UserResponse;
 import com.internship.crm.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "用户管理", description = "管理员维护 CRM 用户")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
     private final UserService userService;
