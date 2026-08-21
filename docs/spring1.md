@@ -40,9 +40,9 @@ git switch -c feature/<task-name>
 | 1 | 数据库设计 | `sprint-1-database-design` | 已合并，旧分支已删除 |
 | 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
 | 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已完成并合并 |
-| 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 生产代码和 44 项自动化测试已通过，待 Swagger 验收与 PR |
-| 5 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |
-| 6 | 广告主管理 | `feature/advertiser-management` | 待开始 |
+| 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 已完成并合并 |
+| 5 | 广告主分类管理 | `feature/advertiser-management` | 生产代码、数据库关系测试和 Swagger 验收已通过，待 PR |
+| 6 | 广告主管理 | `feature/advertiser-management` | 生产代码、Service/RBAC 测试和 Swagger 验收已通过，待 PR |
 | 7 | Sprint 联调与验收 | `test/sprint1-integration` | 待开始 |
 
 状态只在任务通过测试并合并到 `sprint1-backend-development` 后更新为“已完成”。
@@ -117,7 +117,7 @@ git switch -c feature/<task-name>
 
 主要工作：
 
-- 实现广告主分类的新增、查询、修改和启用/禁用。
+- 实现广告主分类的新增、查询、修改、删除和启用/禁用。
 - 分类名称不区分大小写唯一。
 - 列表按 `sort_order` 排序。
 - 禁用分类保留历史关系，但不能分配给新的广告主。
@@ -132,7 +132,7 @@ git switch -c feature/<task-name>
 
 主要工作：
 
-- 实现广告主档案的新增、分页查询、详情查询、修改和状态变更。
+- 实现广告主档案的新增、列表查询、详情查询、修改、删除和状态变更。
 - 支持关联广告主分类和负责人。
 - 只允许分配状态为 `ACTIVE` 的分类和负责人。
 - 企业名称不区分大小写唯一，注册编号唯一。
@@ -187,14 +187,14 @@ git switch -c feature/<task-name>
 
 ## 7. Sprint 1 总体验收清单
 
-- [ ] Flyway 可以在空数据库上完成初始化。
-- [ ] 用户注册、登录和 JWT 鉴权可用。
-- [ ] BCrypt 密码摘要和 RBAC 权限规则正确。
-- [ ] 用户 CRUD 与启用/禁用可用。
-- [ ] 广告主分类管理可用。
-- [ ] 广告主 CRUD 与启用/禁用可用。
-- [ ] 统一响应、异常处理和日志规范生效。
-- [ ] Swagger 文档完整且与实际接口一致。
-- [ ] 基础单元测试和接口测试通过。
-- [ ] 不包含 CSV、报表或 Agent 等 Sprint 1 范围外功能。
+- [x] Flyway 可以在空数据库上完成初始化。
+- [x] 用户注册、登录和 JWT 鉴权可用。
+- [x] BCrypt 密码摘要和 RBAC 权限规则正确。
+- [x] 用户 CRUD 与启用/禁用可用。
+- [x] 广告主分类管理可用。
+- [x] 广告主 CRUD 与启用/禁用可用。
+- [x] 统一响应、异常处理和日志规范生效。
+- [x] Swagger 文档完整且与实际接口一致。
+- [x] 82 项基础单元测试、接口测试和数据库集成测试通过。
+- [x] 不包含 CSV、报表或 Agent 等 Sprint 1 范围外功能。
 - [ ] `sprint1-backend-development` 最终合并到 `main`。

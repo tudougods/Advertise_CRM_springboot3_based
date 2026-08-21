@@ -3,6 +3,7 @@ package com.internship.crm.config;
 import com.internship.crm.auth.security.JwtAuthenticationFilter;
 import com.internship.crm.auth.security.RestAccessDeniedHandler;
 import com.internship.crm.auth.security.RestAuthenticationEntryPoint;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,6 +49,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertisers/**").hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers("/api/v1/advertisers/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertiser-categories/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers("/api/v1/advertiser-categories/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
