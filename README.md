@@ -1,6 +1,6 @@
 # Advertiser CRM Backend
 
-广告商 CRM 后端原型的 Spring Boot 模块化单体项目。当前已包含 Sprint 1 核心表迁移、公共 Web 规范，以及用户 CRUD、注册登录、BCrypt、JWT 和 RBAC 生产代码。
+广告商 CRM 后端原型的 Spring Boot 模块化单体项目。当前已包含 Sprint 1 核心表迁移、公共 Web 规范、用户认证与权限，以及广告主档案、状态和分类管理代码。
 
 ## 技术基线
 
@@ -83,6 +83,27 @@ WHERE LOWER(username) = LOWER('替换为你的用户名');
 ```
 
 重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；合法的 `OPERATOR` Token 访问这些接口会返回 403。账号被设为 `DISABLED` 后，现有 Token 也不能继续访问受保护接口。
+
+## 广告主管理
+
+广告主接口：
+
+- `POST /api/v1/advertisers`：创建广告主。
+- `GET /api/v1/advertisers`：查询广告主列表。
+- `GET /api/v1/advertisers/{id}`：查询广告主详情。
+- `PATCH /api/v1/advertisers/{id}`：局部修改广告主档案。
+- `PATCH /api/v1/advertisers/{id}/status`：启用或禁用广告主。
+- `DELETE /api/v1/advertisers/{id}`：物理删除广告主。
+
+广告主分类接口：
+
+- `POST /api/v1/advertiser-categories`：创建分类。
+- `GET /api/v1/advertiser-categories`：查询分类列表。
+- `GET /api/v1/advertiser-categories/{id}`：查询分类详情。
+- `PATCH /api/v1/advertiser-categories/{id}`：修改分类、状态或展示顺序。
+- `DELETE /api/v1/advertiser-categories/{id}`：删除分类；已有广告主保留，`categoryId` 自动置空。
+
+`ADMIN` 可以执行上述全部操作；`OPERATOR` 只能查询广告主和分类。新建或修改广告主时，只能分配状态为 `ACTIVE` 的分类和负责人。广告主名称、分类名称不区分大小写唯一，非空注册编号全局唯一。
 
 停止数据库和管理页面：
 
