@@ -31,7 +31,7 @@ git pull --ff-only origin sprint1-backend-development
 git switch -c feature/<task-name>
 ```
 
-功能测试通过后再提交和推送，并将 Pull Request 的目标分支设置为 `sprint1-backend-development`。Sprint 1 验收完成前，不把单个功能分支直接合并到 `main`。
+开发期间按可独立编译的任务分别提交，完整功能测试通过后再推送，并将 Pull Request 的目标分支设置为 `sprint1-backend-development`。Sprint 1 验收完成前，不把单个功能分支直接合并到 `main`。
 
 ## 3. 当前进度
 
@@ -39,12 +39,11 @@ git switch -c feature/<task-name>
 | --- | --- | --- | --- |
 | 1 | 数据库设计 | `sprint-1-database-design` | 已合并，旧分支已删除 |
 | 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
-| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已实现并通过测试，等待 PR 合并 |
-| 4 | 用户管理 | `feature/user-management` | 待开始 |
-| 5 | JWT 认证与 RBAC | `feature/authentication-rbac` | 待开始 |
-| 6 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |
-| 7 | 广告主管理 | `feature/advertiser-management` | 待开始 |
-| 8 | Sprint 联调与验收 | `test/sprint1-integration` | 待开始 |
+| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已完成并合并 |
+| 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 生产代码和 44 项自动化测试已通过，待 Swagger 验收与 PR |
+| 5 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |
+| 6 | 广告主管理 | `feature/advertiser-management` | 待开始 |
+| 7 | Sprint 联调与验收 | `test/sprint1-integration` | 待开始 |
 
 状态只在任务通过测试并合并到 `sprint1-backend-development` 后更新为“已完成”。
 
@@ -88,8 +87,8 @@ git switch -c feature/<task-name>
 主要工作：
 
 - 建立用户实体、DTO、Mapper、Service 和 Controller。
-- 实现用户信息查询、分页、局部修改和状态变更。
-- 使用 `ACTIVE`、`DISABLED` 管理账号状态，不提供物理删除。
+- 实现用户创建、列表、详情、局部修改、状态变更和删除。
+- 使用 `ACTIVE`、`DISABLED` 管理账号状态；`DELETE` 执行物理删除，关联广告主的负责人字段由外键规则置空。
 - 保证用户名和邮箱的不区分大小写唯一性。
 
 完成标准：
@@ -180,9 +179,9 @@ git switch -c feature/<task-name>
 1. 从最新的 `sprint1-backend-development` 创建功能分支。
 2. 先确认需求、接口和数据规则，再开始编码。
 3. 只修改当前任务所需文件，避免混入其他功能。
-4. 完成编译、单元测试和本地接口测试。
-5. 人工检查代码和测试结果。
-6. 获得确认后再提交、推送并创建 Pull Request。
+4. 每个可独立编译的开发任务完成后单独提交。
+5. 功能代码齐全后集中完成单元测试、本地接口测试和人工检查。
+6. 测试通过并获得确认后再推送并创建 Pull Request。
 7. 合并回 `sprint1-backend-development` 后删除功能分支。
 8. 更新本文的任务状态，再开始下一个任务。
 

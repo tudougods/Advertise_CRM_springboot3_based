@@ -1,32 +1,55 @@
 package com.internship.crm.config;
 
+import com.internship.crm.auth.security.JwtAuthenticationFilter;
+import com.internship.crm.auth.security.RestAccessDeniedHandler;
+import com.internship.crm.auth.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Secure-by-default HTTP configuration for the empty project skeleton.
- * Business authentication and JWT support will replace this policy later.
- */
+/** Stateless JWT authentication and role-based access rules for the CRM API. */
 @Configuration
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/actuator/health/**",
+        "/api/v1/auth/register",
+        "/api/v1/auth/login",
         "/v3/api-docs/**",
         "/swagger-ui.html",
         "/swagger-ui/**"
     };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            RestAuthenticationEntryPoint authenticationEntryPoint,
+            RestAccessDeniedHandler accessDeniedHandler) throws Exception {
         return http
             .csrf(AbstractHttpConfigurer::disable)
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exceptions -> exceptions
+                    .authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                .anyRequest().denyAll())
+                .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+                .anyRequest().authenticated())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
 }
