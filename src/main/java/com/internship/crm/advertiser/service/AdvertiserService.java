@@ -93,11 +93,17 @@ public class AdvertiserService {
                 advertiser.setRegistrationNo(registrationNo);
             }
         }
-        if (request.categoryId() != null && !Objects.equals(advertiser.getCategoryId(), request.categoryId())) {
+        if (Boolean.TRUE.equals(request.clearCategory())) {
+            advertiser.setCategoryId(null);
+        } else if (request.categoryId() != null
+                && !Objects.equals(advertiser.getCategoryId(), request.categoryId())) {
             validateCategory(request.categoryId());
             advertiser.setCategoryId(request.categoryId());
         }
-        if (request.ownerUserId() != null && !Objects.equals(advertiser.getOwnerUserId(), request.ownerUserId())) {
+        if (Boolean.TRUE.equals(request.clearOwner())) {
+            advertiser.setOwnerUserId(null);
+        } else if (request.ownerUserId() != null
+                && !Objects.equals(advertiser.getOwnerUserId(), request.ownerUserId())) {
             validateOwner(request.ownerUserId());
             advertiser.setOwnerUserId(request.ownerUserId());
         }
@@ -188,7 +194,9 @@ public class AdvertiserService {
         if (request.name() == null
                 && request.registrationNo() == null
                 && request.categoryId() == null
+                && !Boolean.TRUE.equals(request.clearCategory())
                 && request.ownerUserId() == null
+                && !Boolean.TRUE.equals(request.clearOwner())
                 && request.website() == null
                 && request.address() == null
                 && request.description() == null) {

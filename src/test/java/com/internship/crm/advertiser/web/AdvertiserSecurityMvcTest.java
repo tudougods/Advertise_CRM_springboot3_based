@@ -15,6 +15,7 @@ import com.internship.crm.advertiser.api.AdvertiserCategoryResponse;
 import com.internship.crm.advertiser.api.AdvertiserResponse;
 import com.internship.crm.advertiser.api.CreateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.api.CreateAdvertiserRequest;
+import com.internship.crm.advertiser.api.UpdateAdvertiserRequest;
 import com.internship.crm.advertiser.api.UpdateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.domain.AdvertiserStatus;
 import com.internship.crm.advertiser.service.AdvertiserCategoryService;
@@ -98,6 +99,19 @@ class AdvertiserSecurityMvcTest {
     }
 
     @Test
+    @DisplayName("ADMIN 可以查询广告主详情")
+    void adminCanReadAnAdvertiser() throws Exception {
+        authorize("admin-read-advertiser", user(1L, UserRole.ADMIN));
+        when(advertiserService.findById(14L))
+                .thenReturn(advertiserResponse(14L, AdvertiserStatus.ACTIVE));
+
+        mockMvc.perform(get("/api/v1/advertisers/14")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-read-advertiser"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(14));
+    }
+
+    @Test
     @DisplayName("OPERATOR 不能创建广告主")
     void operatorCannotCreateAdvertisers() throws Exception {
         authorize("operator-create", user(2L, UserRole.OPERATOR));
@@ -144,6 +158,21 @@ class AdvertiserSecurityMvcTest {
     }
 
     @Test
+    @DisplayName("ADMIN 可以局部修改并解除广告主关联")
+    void adminCanUpdateAndClearAdvertiserRelations() throws Exception {
+        authorize("admin-update-advertiser", user(1L, UserRole.ADMIN));
+        when(advertiserService.update(any(Long.class), any(UpdateAdvertiserRequest.class)))
+                .thenReturn(advertiserResponse(15L, AdvertiserStatus.ACTIVE));
+
+        mockMvc.perform(patch("/api/v1/advertisers/15")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-update-advertiser")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clearCategory\":true,\"clearOwner\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(15));
+    }
+
+    @Test
     @DisplayName("ADMIN 可以删除广告主")
     void adminCanDeleteAnAdvertiser() throws Exception {
         authorize("admin-delete", user(1L, UserRole.ADMIN));
@@ -170,6 +199,35 @@ class AdvertiserSecurityMvcTest {
     }
 
     @Test
+    @DisplayName("非正数的分类和负责人 ID 被统一校验拒绝")
+    void nonPositiveRelationIdsReturnValidationError() throws Exception {
+        authorize("admin-invalid-relations", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(post("/api/v1/advertisers")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"非法关联\",\"categoryId\":0,\"ownerUserId\":-1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("换绑和解除同一关系的冲突请求被拒绝")
+    void conflictingRelationChangesReturnValidationError() throws Exception {
+        authorize("admin-conflicting-relations", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(patch("/api/v1/advertisers/15")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-conflicting-relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryId\":2,\"clearCategory\":true}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(advertiserService, never()).update(any(Long.class), any(UpdateAdvertiserRequest.class));
+    }
+
+    @Test
     @DisplayName("OPERATOR 可以查询广告主分类")
     void operatorCanListCategories() throws Exception {
         authorize("operator-categories", user(2L, UserRole.OPERATOR));
@@ -179,6 +237,19 @@ class AdvertiserSecurityMvcTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value(20));
+    }
+
+    @Test
+    @DisplayName("ADMIN 可以查询广告主分类详情")
+    void adminCanReadACategory() throws Exception {
+        authorize("admin-category-read", user(1L, UserRole.ADMIN));
+        when(categoryService.findById(24L))
+                .thenReturn(categoryResponse(24L, AdvertiserStatus.ACTIVE));
+
+        mockMvc.perform(get("/api/v1/advertiser-categories/24")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-category-read"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(24));
     }
 
     @Test

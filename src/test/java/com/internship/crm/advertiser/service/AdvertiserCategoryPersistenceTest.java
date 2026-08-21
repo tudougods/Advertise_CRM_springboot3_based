@@ -6,6 +6,7 @@ import com.internship.crm.advertiser.api.AdvertiserCategoryResponse;
 import com.internship.crm.advertiser.api.AdvertiserResponse;
 import com.internship.crm.advertiser.api.CreateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.api.CreateAdvertiserRequest;
+import com.internship.crm.advertiser.api.UpdateAdvertiserRequest;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -49,5 +50,29 @@ class AdvertiserCategoryPersistenceTest {
 
         AdvertiserResponse reloaded = advertiserService.findById(advertiser.id());
         assertNull(reloaded.categoryId(), "删除分类后广告主的 categoryId 应由数据库设置为 null");
+    }
+
+    @Test
+    @DisplayName("主动解除分类会把 categoryId 持久化为 null")
+    void clearingCategoryPersistsANullCategoryId() {
+        String suffix = UUID.randomUUID().toString();
+        AdvertiserCategoryResponse category = categoryService.create(
+                new CreateAdvertiserCategoryRequest("clear-category-" + suffix, null, null, 0));
+        AdvertiserResponse advertiser = advertiserService.create(
+                new CreateAdvertiserRequest(
+                        "clear-advertiser-" + suffix,
+                        null,
+                        category.id(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+
+        advertiserService.update(advertiser.id(), new UpdateAdvertiserRequest(
+                null, null, null, true, null, null, null, null, null));
+
+        AdvertiserResponse reloaded = advertiserService.findById(advertiser.id());
+        assertNull(reloaded.categoryId(), "主动解除分类后 categoryId 应持久化为 null");
     }
 }

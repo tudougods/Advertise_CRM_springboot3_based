@@ -3,6 +3,7 @@ package com.internship.crm.advertiser.api;
 import com.internship.crm.advertiser.domain.AdvertiserStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "创建广告主请求")
@@ -15,8 +16,10 @@ public record CreateAdvertiserRequest(
         @Size(max = 64, message = "注册编号不能超过 64 个字符")
         String registrationNo,
 
+        @Positive(message = "广告主分类 ID 必须为正数")
         Long categoryId,
 
+        @Positive(message = "负责人 ID 必须为正数")
         Long ownerUserId,
 
         AdvertiserStatus status,

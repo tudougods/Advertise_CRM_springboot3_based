@@ -181,7 +181,7 @@ class AdvertiserServiceTest {
         when(advertiserMapper.selectById(7L)).thenReturn(existing);
 
         AdvertiserResponse response = advertiserService.update(7L, new UpdateAdvertiserRequest(
-                "  new name  ", " ", null, null, " ", "新地址", " "));
+                "  new name  ", " ", null, null, null, null, " ", "新地址", " "));
 
         assertAll(
                 () -> assertEquals("new name", response.name()),
@@ -196,7 +196,8 @@ class AdvertiserServiceTest {
     @Test
     @DisplayName("空的广告主局部修改请求被拒绝")
     void emptyUpdateIsRejected() {
-        UpdateAdvertiserRequest empty = new UpdateAdvertiserRequest(null, null, null, null, null, null, null);
+        UpdateAdvertiserRequest empty = new UpdateAdvertiserRequest(
+                null, null, null, null, null, null, null, null, null);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -204,6 +205,25 @@ class AdvertiserServiceTest {
 
         assertSame(AdvertiserErrorCode.NO_FIELDS_TO_UPDATE, exception.errorCode());
         verify(advertiserMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("局部修改可以主动解除已有分类和负责人")
+    void updateCanClearCategoryAndOwner() {
+        Advertiser existing = advertiser(71L, "clear relations", AdvertiserStatus.ACTIVE);
+        existing.setCategoryId(2L);
+        existing.setOwnerUserId(3L);
+        when(advertiserMapper.selectById(71L)).thenReturn(existing);
+
+        AdvertiserResponse response = advertiserService.update(71L, new UpdateAdvertiserRequest(
+                null, null, null, true, null, true, null, null, null));
+
+        assertAll(
+                () -> assertNull(response.categoryId()),
+                () -> assertNull(response.ownerUserId()));
+        verify(advertiserMapper).updateById(existing);
+        verify(categoryMapper, never()).selectById(any());
+        verify(userMapper, never()).selectById(any());
     }
 
     @Test

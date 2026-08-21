@@ -195,6 +195,6 @@ git switch -c feature/<task-name>
 - [x] 广告主 CRUD 与启用/禁用可用。
 - [x] 统一响应、异常处理和日志规范生效。
 - [x] Swagger 文档完整且与实际接口一致。
-- [x] 75 项基础单元测试、接口测试和数据库集成测试通过。
+- [x] 82 项基础单元测试、接口测试和数据库集成测试通过。
 - [x] 不包含 CSV、报表或 Agent 等 Sprint 1 范围外功能。
 - [ ] `sprint1-backend-development` 最终合并到 `main`。

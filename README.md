@@ -105,6 +105,8 @@ WHERE LOWER(username) = LOWER('替换为你的用户名');
 
 `ADMIN` 可以执行上述全部操作；`OPERATOR` 只能查询广告主和分类。新建或修改广告主时，只能分配状态为 `ACTIVE` 的分类和负责人。广告主名称、分类名称不区分大小写唯一，非空注册编号全局唯一。
 
+局部修改时使用 `clearCategory: true` 或 `clearOwner: true` 可以主动解除广告主已有的分类或负责人；清除标记不能和对应的新 ID 同时提供。
+
 停止数据库和管理页面：
 
 ```powershell
