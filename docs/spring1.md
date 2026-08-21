@@ -38,8 +38,8 @@ git switch -c feature/<task-name>
 | 顺序 | 任务 | 分支 | 当前状态 |
 | --- | --- | --- | --- |
 | 1 | 数据库设计 | `sprint-1-database-design` | 已合并，旧分支已删除 |
-| 2 | 数据库初始化 | `feature/database-initialization` | 已实现，等待人工测试 |
-| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 待开始 |
+| 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
+| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已实现，等待人工测试 |
 | 4 | 用户管理 | `feature/user-management` | 待开始 |
 | 5 | JWT 认证与 RBAC | `feature/authentication-rbac` | 待开始 |
 | 6 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |
@@ -80,6 +80,8 @@ git switch -c feature/<task-name>
 - 成功和失败响应格式一致。
 - 参数错误能够返回可读信息和正确的 HTTP 状态码。
 - 关键异常有日志，但响应中不暴露堆栈和数据库细节。
+- 响应头、响应体和日志使用一致的 Request ID。
+- 公共 Web 行为具有 MockMvc 自动化测试。
 
 ### 4.3 用户管理
 
