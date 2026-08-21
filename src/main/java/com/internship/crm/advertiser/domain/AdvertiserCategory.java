@@ -1,6 +1,7 @@
 package com.internship.crm.advertiser.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -15,6 +16,7 @@ public class AdvertiserCategory {
 
     private String name;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String description;
 
     private AdvertiserStatus status;
