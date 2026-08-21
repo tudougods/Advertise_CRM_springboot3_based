@@ -48,7 +48,7 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 .\scripts\test.cmd
 ```
 
-测试成功时会分行输出各项检查结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
+每项测试完成后会立即分行输出结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
 
 验证地址：
 
@@ -67,6 +67,14 @@ docker compose down
 ```powershell
 docker compose --profile full up --build
 ```
+
+## API 公共约定
+
+业务接口显式返回统一的 `ApiResponse<T>`，包含 `success`、`code`、`message`、`data`、`timestamp` 和 `requestId`。公共错误码统一使用 `COMMON_*` 前缀，后续业务模块使用各自模块前缀。
+
+每个请求都会返回 `X-Request-ID` 响应头。客户端可以传入由字母、数字、点、下划线和短横线组成且不超过 64 个字符的 Request ID；非法或缺失的值会被服务端替换。相同 ID 会写入响应体和请求完成日志。
+
+全局异常处理统一转换参数校验、非法 JSON、资源不存在、数据冲突和未知异常。客户端响应不得包含堆栈、SQL、文件路径、密码或 Token；未知异常的完整信息只记录在后端日志中。
 
 ## 模块边界
 

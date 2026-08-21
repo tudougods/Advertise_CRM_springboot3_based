@@ -13,13 +13,19 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 import org.flywaydb.core.api.MigrationState;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import com.internship.crm.testsupport.ReadableTestResultExtension;
+
 @SpringBootTest
+@DisplayName("应用与数据库初始化")
+@ExtendWith(ReadableTestResultExtension.class)
 class AdvertiserCrmApplicationTests {
 
 	@Autowired
@@ -35,6 +41,7 @@ class AdvertiserCrmApplicationTests {
 	private JdbcTemplate jdbcTemplate;
 
 	@Test
+	@DisplayName("Spring 配置、PostgreSQL、Flyway V1 和三张核心表均正常")
 	void applicationContextAndDatabaseInitializationStateAreValid() throws SQLException {
 		MigrationInfo coreTableMigration = Arrays.stream(flyway.info().applied())
 				.filter(migration -> migration.getVersion() != null)
@@ -61,13 +68,6 @@ class AdvertiserCrmApplicationTests {
 							"Sprint 1 的三张核心表应当全部存在"));
 		}
 
-		System.out.println("""
-				[OK] 数据库初始化状态检查通过
-				[OK] Spring 应用配置加载成功
-				[OK] PostgreSQL 数据库连接成功
-				[OK] Flyway V1 已成功应用
-				[OK] users、advertiser_categories、advertisers 三张核心表均存在
-				""");
 	}
 
 }
