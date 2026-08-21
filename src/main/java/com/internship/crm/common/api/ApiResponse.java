@@ -3,9 +3,8 @@ package com.internship.crm.common.api;
 import java.time.Instant;
 import java.util.Objects;
 
-import org.slf4j.MDC;
-
 import com.internship.crm.common.error.ErrorCode;
+import com.internship.crm.common.web.RequestIdContext;
 
 /**
  * Stable envelope used by CRM business APIs.
@@ -28,8 +27,6 @@ public record ApiResponse<T>(
 
     public static final String SUCCESS_CODE = "OK";
     public static final String SUCCESS_MESSAGE = "请求成功";
-
-    private static final String REQUEST_ID_MDC_KEY = "requestId";
 
     public ApiResponse {
         Objects.requireNonNull(code, "code must not be null");
@@ -71,6 +68,6 @@ public record ApiResponse<T>(
     }
 
     private static String currentRequestId() {
-        return MDC.get(REQUEST_ID_MDC_KEY);
+        return RequestIdContext.current();
     }
 }

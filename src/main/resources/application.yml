@@ -52,6 +52,8 @@ springdoc:
     tags-sorter: alpha
 
 logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"
   level:
     root: INFO
     com.internship.crm: INFO
