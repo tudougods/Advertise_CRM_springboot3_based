@@ -62,3 +62,7 @@ com.internship.crm
 ```
 
 各业务模块在进入对应开发阶段时再建立 Controller、Service、Domain 和 Mapper，避免提前创建空壳分层。
+
+## 设计文档
+
+- [Sprint 1 数据库设计](docs/database-design.md)
