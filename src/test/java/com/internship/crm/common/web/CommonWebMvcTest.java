@@ -22,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -29,7 +30,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.internship.crm.common.exception.GlobalExceptionHandler;
+import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
+import com.internship.crm.user.service.UserService;
 
 @WebMvcTest(controllers = CommonWebTestController.class)
 @Import({
@@ -46,6 +49,12 @@ class CommonWebMvcTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private JwtTokenService jwtTokenService;
+
+    @MockitoBean
+    private UserService userService;
 
     @Test
     @DisplayName("成功请求返回统一响应并沿用客户端 requestId")
