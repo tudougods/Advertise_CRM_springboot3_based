@@ -9,11 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.MDC;
 
 import com.internship.crm.common.error.CommonErrorCode;
+import com.internship.crm.testsupport.ReadableTestResultExtension;
 
+@DisplayName("统一 API 响应结构")
+@ExtendWith(ReadableTestResultExtension.class)
 class ApiResponseTest {
 
     @AfterEach
@@ -22,6 +27,7 @@ class ApiResponseTest {
     }
 
     @Test
+    @DisplayName("成功响应包含统一字段和当前 requestId")
     void successUsesStableEnvelopeAndCurrentRequestId() {
         MDC.put("requestId", "request-123");
 
@@ -37,6 +43,7 @@ class ApiResponseTest {
     }
 
     @Test
+    @DisplayName("失败响应包含指定错误码和错误详情")
     void failureUsesTheProvidedErrorCodeAndDetails() {
         Map<String, String> details = Map.of("username", "用户名已存在");
 

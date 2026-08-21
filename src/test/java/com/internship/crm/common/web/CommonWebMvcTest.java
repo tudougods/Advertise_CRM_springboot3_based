@@ -10,7 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -27,6 +29,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.internship.crm.common.exception.GlobalExceptionHandler;
+import com.internship.crm.testsupport.ReadableTestResultExtension;
 
 @WebMvcTest(controllers = CommonWebTestController.class)
 @Import({
@@ -34,6 +37,8 @@ import com.internship.crm.common.exception.GlobalExceptionHandler;
         RequestLoggingFilter.class,
         CommonWebMvcTest.PermitAllTestSecurity.class
 })
+@DisplayName("通用 Web 响应与异常处理")
+@ExtendWith(ReadableTestResultExtension.class)
 class CommonWebMvcTest {
 
     @Autowired
@@ -43,6 +48,7 @@ class CommonWebMvcTest {
     private ObjectMapper objectMapper;
 
     @Test
+    @DisplayName("成功请求返回统一响应并沿用客户端 requestId")
     void successResponseUsesTheCommonEnvelopeAndClientRequestId() throws Exception {
         mockMvc.perform(get("/test/common/success")
                         .header(RequestIdContext.HEADER_NAME, "client-request-123"))
@@ -57,6 +63,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("请求体校验失败返回排序后的字段错误")
     void invalidRequestBodyReturnsSortedFieldErrors() throws Exception {
         MvcResult result = mockMvc.perform(post("/test/common/validate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -72,6 +79,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("JSON 格式错误返回安全的 400 响应")
     void malformedJsonReturnsBadRequestWithoutParserDetails() throws Exception {
         MvcResult result = mockMvc.perform(post("/test/common/validate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,6 +94,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("参数类型错误返回客户端安全的校验响应")
     void typeMismatchReturnsAClientSafeValidationError() throws Exception {
         mockMvc.perform(get("/test/common/type/not-a-number"))
                 .andExpect(status().isBadRequest())
@@ -95,6 +104,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("业务异常返回对应 HTTP 状态码和客户端消息")
     void businessExceptionUsesItsHttpStatusCodeAndClientMessage() throws Exception {
         mockMvc.perform(get("/test/common/business-error"))
                 .andExpect(status().isConflict())
@@ -103,6 +113,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("未知异常返回通用 500 且不泄露内部信息")
     void unexpectedExceptionReturnsGenericInternalError() throws Exception {
         MvcResult result = mockMvc.perform(get("/test/common/unexpected-error"))
                 .andExpect(status().isInternalServerError())
@@ -116,6 +127,7 @@ class CommonWebMvcTest {
     }
 
     @Test
+    @DisplayName("不存在的接口返回统一 404 响应")
     void unknownRouteReturnsTheCommonNotFoundResponse() throws Exception {
         MvcResult result = mockMvc.perform(get("/test/common/does-not-exist"))
                 .andExpect(status().isNotFound())

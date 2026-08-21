@@ -39,7 +39,7 @@ git switch -c feature/<task-name>
 | --- | --- | --- | --- |
 | 1 | 数据库设计 | `sprint-1-database-design` | 已合并，旧分支已删除 |
 | 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
-| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已实现，等待人工测试 |
+| 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已实现并通过测试，等待 PR 合并 |
 | 4 | 用户管理 | `feature/user-management` | 待开始 |
 | 5 | JWT 认证与 RBAC | `feature/authentication-rbac` | 待开始 |
 | 6 | 广告主分类管理 | `feature/advertiser-category-management` | 待开始 |

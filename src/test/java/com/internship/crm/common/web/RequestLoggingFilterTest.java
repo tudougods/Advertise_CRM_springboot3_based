@@ -9,10 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import com.internship.crm.testsupport.ReadableTestResultExtension;
+
+@DisplayName("请求编号与日志过滤器")
+@ExtendWith(ReadableTestResultExtension.class)
 class RequestLoggingFilterTest {
 
     private final RequestLoggingFilter filter = new RequestLoggingFilter();
@@ -23,6 +29,7 @@ class RequestLoggingFilterTest {
     }
 
     @Test
+    @DisplayName("保留安全的客户端 requestId 并在请求后清理上下文")
     void preservesASafeClientRequestIdAndClearsMdcAfterTheRequest() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/test");
         request.addHeader(RequestIdContext.HEADER_NAME, "client-request_123");
@@ -42,6 +49,7 @@ class RequestLoggingFilterTest {
     }
 
     @Test
+    @DisplayName("替换不安全的客户端 requestId")
     void replacesAnUnsafeClientRequestId() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/test");
         request.addHeader(RequestIdContext.HEADER_NAME, "unsafe request id\nvalue");

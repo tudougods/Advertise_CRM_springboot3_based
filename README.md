@@ -48,7 +48,7 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 .\scripts\test.cmd
 ```
 
-测试成功时会分行输出各项检查结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
+每项测试完成后会立即分行输出结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
 
 验证地址：
 
