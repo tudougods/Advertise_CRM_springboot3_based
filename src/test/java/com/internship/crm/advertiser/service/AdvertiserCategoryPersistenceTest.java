@@ -2,11 +2,11 @@ package com.internship.crm.advertiser.service;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import com.internship.crm.advertiser.api.AdvertiserCategoryResponse;
-import com.internship.crm.advertiser.api.AdvertiserResponse;
-import com.internship.crm.advertiser.api.CreateAdvertiserCategoryRequest;
-import com.internship.crm.advertiser.api.CreateAdvertiserRequest;
-import com.internship.crm.advertiser.api.UpdateAdvertiserRequest;
+import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
+import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
+import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;

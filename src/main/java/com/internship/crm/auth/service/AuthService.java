@@ -1,14 +1,14 @@
 package com.internship.crm.auth.service;
 
-import com.internship.crm.auth.api.AuthResponse;
-import com.internship.crm.auth.api.LoginRequest;
-import com.internship.crm.auth.api.RegisterRequest;
-import com.internship.crm.auth.error.AuthErrorCode;
+import com.internship.crm.auth.dto.response.AuthResponse;
+import com.internship.crm.auth.dto.request.LoginRequest;
+import com.internship.crm.auth.dto.request.RegisterRequest;
+import com.internship.crm.auth.exception.AuthErrorCode;
 import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.common.exception.BusinessException;
-import com.internship.crm.user.api.UserResponse;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserStatus;
+import com.internship.crm.user.dto.response.UserResponse;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserStatus;
 import com.internship.crm.user.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

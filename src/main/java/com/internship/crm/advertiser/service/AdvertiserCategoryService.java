@@ -1,12 +1,12 @@
 package com.internship.crm.advertiser.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.internship.crm.advertiser.api.AdvertiserCategoryResponse;
-import com.internship.crm.advertiser.api.CreateAdvertiserCategoryRequest;
-import com.internship.crm.advertiser.api.UpdateAdvertiserCategoryRequest;
-import com.internship.crm.advertiser.domain.AdvertiserCategory;
-import com.internship.crm.advertiser.domain.AdvertiserStatus;
-import com.internship.crm.advertiser.error.AdvertiserErrorCode;
+import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
+import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
+import com.internship.crm.advertiser.entity.AdvertiserCategory;
+import com.internship.crm.advertiser.entity.AdvertiserStatus;
+import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.common.exception.BusinessException;
 import java.time.OffsetDateTime;
@@ -41,6 +41,7 @@ public class AdvertiserCategoryService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<AdvertiserCategoryResponse> findAll() {
         LambdaQueryWrapper<AdvertiserCategory> query = new LambdaQueryWrapper<AdvertiserCategory>()
                 .orderByAsc(AdvertiserCategory::getSortOrder)

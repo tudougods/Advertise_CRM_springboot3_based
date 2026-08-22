@@ -2,13 +2,13 @@ package com.internship.crm.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.internship.crm.common.exception.BusinessException;
-import com.internship.crm.user.api.CreateUserRequest;
-import com.internship.crm.user.api.UpdateUserRequest;
-import com.internship.crm.user.api.UserResponse;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserRole;
-import com.internship.crm.user.domain.UserStatus;
-import com.internship.crm.user.error.UserErrorCode;
+import com.internship.crm.user.dto.request.CreateUserRequest;
+import com.internship.crm.user.dto.request.UpdateUserRequest;
+import com.internship.crm.user.dto.response.UserResponse;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserRole;
+import com.internship.crm.user.entity.UserStatus;
+import com.internship.crm.user.exception.UserErrorCode;
 import com.internship.crm.user.mapper.UserMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -64,6 +64,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<UserResponse> findAll() {
         return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream()
                 .map(UserResponse::from)

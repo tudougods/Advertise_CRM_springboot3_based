@@ -2,11 +2,11 @@ package com.internship.crm.advertiser.mapper;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.internship.crm.advertiser.domain.Advertiser;
+import com.internship.crm.advertiser.entity.Advertiser;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 
-/** MyBatis-Plus data access entry point for advertisers. */
+/** ORM data access entry point for advertisers. */
 @Mapper
 public interface AdvertiserMapper extends BaseMapper<Advertiser> {
 
@@ -17,6 +17,7 @@ public interface AdvertiserMapper extends BaseMapper<Advertiser> {
         return Optional.ofNullable(selectOne(query));
     }
 
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     default Optional<Advertiser> findByRegistrationNo(String registrationNo) {
         LambdaQueryWrapper<Advertiser> query = new LambdaQueryWrapper<Advertiser>()
                 .eq(Advertiser::getRegistrationNo, registrationNo)

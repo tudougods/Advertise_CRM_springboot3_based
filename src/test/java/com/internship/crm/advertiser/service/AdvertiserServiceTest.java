@@ -11,20 +11,19 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.internship.crm.advertiser.api.AdvertiserResponse;
-import com.internship.crm.advertiser.api.CreateAdvertiserRequest;
-import com.internship.crm.advertiser.api.UpdateAdvertiserRequest;
-import com.internship.crm.advertiser.domain.Advertiser;
-import com.internship.crm.advertiser.domain.AdvertiserCategory;
-import com.internship.crm.advertiser.domain.AdvertiserStatus;
-import com.internship.crm.advertiser.error.AdvertiserErrorCode;
+import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
+import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
+import com.internship.crm.advertiser.entity.Advertiser;
+import com.internship.crm.advertiser.entity.AdvertiserCategory;
+import com.internship.crm.advertiser.entity.AdvertiserStatus;
+import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserStatus;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserStatus;
 import com.internship.crm.user.mapper.UserMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -158,14 +157,14 @@ class AdvertiserServiceTest {
     void listAndDetailReturnAdvertiserResponses() {
         Advertiser first = advertiser(1L, "first", AdvertiserStatus.ACTIVE);
         Advertiser second = advertiser(2L, "second", AdvertiserStatus.DISABLED);
-        when(advertiserMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
+        when(advertiserMapper.selectList(any())).thenReturn(List.of(first, second));
         when(advertiserMapper.selectById(1L)).thenReturn(first);
 
         List<AdvertiserResponse> list = advertiserService.findAll();
         AdvertiserResponse detail = advertiserService.findById(1L);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), list.stream().map(AdvertiserResponse::name).toList()),
+                () -> assertEquals(List.of("first", "second"), list.stream().map(response -> response.name()).toList()),
                 () -> assertEquals("first", detail.name()));
     }
 

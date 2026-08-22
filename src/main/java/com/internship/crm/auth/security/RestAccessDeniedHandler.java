@@ -1,8 +1,8 @@
 package com.internship.crm.auth.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.internship.crm.auth.error.AuthErrorCode;
-import com.internship.crm.common.api.ApiResponse;
+import com.internship.crm.auth.exception.AuthErrorCode;
+import com.internship.crm.common.response.ApiResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

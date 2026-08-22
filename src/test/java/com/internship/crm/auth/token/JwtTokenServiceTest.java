@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.internship.crm.testsupport.ReadableTestResultExtension;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserRole;
-import com.internship.crm.user.domain.UserStatus;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserRole;
+import com.internship.crm.user.entity.UserStatus;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;

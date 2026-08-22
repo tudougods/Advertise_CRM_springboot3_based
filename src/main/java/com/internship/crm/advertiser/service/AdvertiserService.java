@@ -1,18 +1,18 @@
 package com.internship.crm.advertiser.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.internship.crm.advertiser.api.AdvertiserResponse;
-import com.internship.crm.advertiser.api.CreateAdvertiserRequest;
-import com.internship.crm.advertiser.api.UpdateAdvertiserRequest;
-import com.internship.crm.advertiser.domain.Advertiser;
-import com.internship.crm.advertiser.domain.AdvertiserCategory;
-import com.internship.crm.advertiser.domain.AdvertiserStatus;
-import com.internship.crm.advertiser.error.AdvertiserErrorCode;
+import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
+import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
+import com.internship.crm.advertiser.entity.Advertiser;
+import com.internship.crm.advertiser.entity.AdvertiserCategory;
+import com.internship.crm.advertiser.entity.AdvertiserStatus;
+import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserStatus;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserStatus;
 import com.internship.crm.user.mapper.UserMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -62,6 +62,7 @@ public class AdvertiserService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<AdvertiserResponse> findAll() {
         return advertiserMapper.selectList(new LambdaQueryWrapper<Advertiser>().orderByAsc(Advertiser::getId))
                 .stream()

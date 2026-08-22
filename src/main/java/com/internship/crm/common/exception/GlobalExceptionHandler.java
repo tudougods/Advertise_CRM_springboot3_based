@@ -2,6 +2,7 @@ package com.internship.crm.common.exception;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +22,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 
-import com.internship.crm.common.api.ApiResponse;
-import com.internship.crm.common.error.CommonErrorCode;
-import com.internship.crm.common.error.ErrorCode;
+import com.internship.crm.common.response.ApiResponse;
 
 /**
  * Converts application and Spring MVC exceptions into the common API envelope.
@@ -116,8 +115,9 @@ public class GlobalExceptionHandler {
     }
 
     private Comparator<FieldValidationError> fieldErrorComparator() {
-        return Comparator.comparing(FieldValidationError::field)
-                .thenComparing(FieldValidationError::message);
+        return Comparator.comparing(
+                        (FieldValidationError error) -> Objects.requireNonNull(error).field())
+                .thenComparing(error -> Objects.requireNonNull(error).message());
     }
 
     private <T> ResponseEntity<ApiResponse<T>> response(ErrorCode errorCode, T data) {
@@ -126,7 +126,7 @@ public class GlobalExceptionHandler {
 
     private <T> ResponseEntity<ApiResponse<T>> response(ErrorCode errorCode, String message, T data) {
         return ResponseEntity
-                .status(errorCode.status())
+                .status(Objects.requireNonNull(errorCode.status()))
                 .body(ApiResponse.failure(errorCode.code(), message, data));
     }
 }

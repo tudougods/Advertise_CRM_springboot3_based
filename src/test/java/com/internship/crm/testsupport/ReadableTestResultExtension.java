@@ -39,7 +39,7 @@ public class ReadableTestResultExtension implements TestWatcher {
     private void printResult(ExtensionContext context, String result) {
         int testNumber = SEQUENCE.incrementAndGet();
         String testGroup = context.getParent()
-                .map(ExtensionContext::getDisplayName)
+                .map(parent -> parent.getDisplayName())
                 .orElse("测试");
 
         UTF8_OUT.printf(
