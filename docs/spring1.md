@@ -41,9 +41,9 @@ git switch -c feature/<task-name>
 | 2 | 数据库初始化 | `feature/database-initialization` | 已完成并合并，旧分支已删除 |
 | 3 | 通用 Web 基础能力 | `feature/common-web-foundation` | 已完成并合并 |
 | 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 已完成并合并 |
-| 5 | 广告主分类管理 | `feature/advertiser-management` | 生产代码、数据库关系测试和 Swagger 验收已通过，待 PR |
-| 6 | 广告主管理 | `feature/advertiser-management` | 生产代码、Service/RBAC 测试和 Swagger 验收已通过，待 PR |
-| 7 | Sprint 联调与验收 | `test/sprint1-integration` | 待开始 |
+| 5 | 广告主分类管理 | `feature/advertiser-management` | 已完成并合并，分类规则与关系行为已通过验证 |
+| 6 | 广告主管理 | `feature/advertiser-management` | 已完成并合并，CRUD、状态和关联规则已通过验证 |
+| 7 | Sprint 联调与验收 | `test/sprint1-smoke-acceptance` | 已完成：82 项自动化测试通过，用户与广告主 Swagger CRUD 验收通过 |
 
 状态只在任务通过测试并合并到 `sprint1-backend-development` 后更新为“已完成”。
 
@@ -196,5 +196,9 @@ git switch -c feature/<task-name>
 - [x] 统一响应、异常处理和日志规范生效。
 - [x] Swagger 文档完整且与实际接口一致。
 - [x] 82 项基础单元测试、接口测试和数据库集成测试通过。
+- [x] 用户与广告主 Swagger CRUD 全流程通过：创建 201、查询/修改/删除 200、删除后查询 404。
+- [x] CRUD 验收截图和测试结论已归档至 `docs/Sprint1-测试验收报告.docx` 与 `docs/assets/sprint1-crud/`。
 - [x] 不包含 CSV、报表或 Agent 等 Sprint 1 范围外功能。
 - [ ] `sprint1-backend-development` 最终合并到 `main`。
+
+当前阶段结论：Sprint 1 功能开发与本地验收已经完成；剩余流程仅为代码审查、合并 `sprint1-backend-development` 到 `main`，以及合并后的最终回归检查。
