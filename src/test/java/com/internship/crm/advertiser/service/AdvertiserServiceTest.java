@@ -11,7 +11,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
@@ -158,14 +157,14 @@ class AdvertiserServiceTest {
     void listAndDetailReturnAdvertiserResponses() {
         Advertiser first = advertiser(1L, "first", AdvertiserStatus.ACTIVE);
         Advertiser second = advertiser(2L, "second", AdvertiserStatus.DISABLED);
-        when(advertiserMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
+        when(advertiserMapper.selectList(any())).thenReturn(List.of(first, second));
         when(advertiserMapper.selectById(1L)).thenReturn(first);
 
         List<AdvertiserResponse> list = advertiserService.findAll();
         AdvertiserResponse detail = advertiserService.findById(1L);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), list.stream().map(AdvertiserResponse::name).toList()),
+                () -> assertEquals(List.of("first", "second"), list.stream().map(response -> response.name()).toList()),
                 () -> assertEquals("first", detail.name()));
     }
 

@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Objects;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,8 +21,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,6 +45,8 @@ import com.internship.crm.user.service.UserService;
 @DisplayName("通用 Web 响应与异常处理")
 @ExtendWith(ReadableTestResultExtension.class)
 class CommonWebMvcTest {
+
+    private static final @NonNull MediaType JSON = Objects.requireNonNull(MediaType.APPLICATION_JSON);
 
     @Autowired
     private MockMvc mockMvc;
@@ -75,7 +79,7 @@ class CommonWebMvcTest {
     @DisplayName("请求体校验失败返回排序后的字段错误")
     void invalidRequestBodyReturnsSortedFieldErrors() throws Exception {
         MvcResult result = mockMvc.perform(post("/test/common/validate")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
@@ -91,7 +95,7 @@ class CommonWebMvcTest {
     @DisplayName("JSON 格式错误返回安全的 400 响应")
     void malformedJsonReturnsBadRequestWithoutParserDetails() throws Exception {
         MvcResult result = mockMvc.perform(post("/test/common/validate")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{invalid-json}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_BAD_REQUEST"))
@@ -161,7 +165,7 @@ class CommonWebMvcTest {
         @Bean
         SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
             return http
-                    .csrf(AbstractHttpConfigurer::disable)
+                    .csrf(csrf -> csrf.disable())
                     .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                     .build();
         }

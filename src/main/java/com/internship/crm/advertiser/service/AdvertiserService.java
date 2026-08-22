@@ -62,6 +62,7 @@ public class AdvertiserService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<AdvertiserResponse> findAll() {
         return advertiserMapper.selectList(new LambdaQueryWrapper<Advertiser>().orderByAsc(Advertiser::getId))
                 .stream()

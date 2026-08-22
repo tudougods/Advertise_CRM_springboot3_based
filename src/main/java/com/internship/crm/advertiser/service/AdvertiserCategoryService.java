@@ -41,6 +41,7 @@ public class AdvertiserCategoryService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<AdvertiserCategoryResponse> findAll() {
         LambdaQueryWrapper<AdvertiserCategory> query = new LambdaQueryWrapper<AdvertiserCategory>()
                 .orderByAsc(AdvertiserCategory::getSortOrder)

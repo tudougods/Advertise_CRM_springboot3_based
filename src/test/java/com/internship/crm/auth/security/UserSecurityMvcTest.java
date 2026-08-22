@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.internship.crm.auth.dto.response.AuthResponse;
 import com.internship.crm.auth.service.AuthService;
 import com.internship.crm.auth.token.JwtTokenService;
@@ -33,6 +32,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +42,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -58,11 +59,10 @@ import org.springframework.test.web.servlet.MockMvc;
 @ExtendWith(ReadableTestResultExtension.class)
 class UserSecurityMvcTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private static final @NonNull MediaType JSON = Objects.requireNonNull(MediaType.APPLICATION_JSON);
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private MockMvc mockMvc;
 
     @MockitoBean
     private AuthService authService;
@@ -80,7 +80,7 @@ class UserSecurityMvcTest {
         when(authService.register(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("""
                                 {
                                   "username": "new.user",
@@ -107,7 +107,7 @@ class UserSecurityMvcTest {
                 response(11L, UserRole.OPERATOR, UserStatus.ACTIVE)));
 
         mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("""
                                 {
                                   "username": "operator",
@@ -191,7 +191,7 @@ class UserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/users")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-create-token")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("""
                                 {
                                   "username": "created.user",
@@ -228,7 +228,7 @@ class UserSecurityMvcTest {
 
         mockMvc.perform(patch("/api/v1/users/32")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-update-token")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("""
                                 {
                                   "role": "ADMIN",
@@ -258,7 +258,7 @@ class UserSecurityMvcTest {
     @DisplayName("非法注册参数由统一校验响应拒绝")
     void invalidRegistrationReturnsTheCommonValidationResponse() throws Exception {
         mockMvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))

@@ -2,8 +2,6 @@ package com.internship.crm.common.exception;
 
 import java.util.Objects;
 
-import com.internship.crm.common.exception.ErrorCode;
-
 /**
  * Expected failure caused by a business rule rather than a system fault.
  */

@@ -64,6 +64,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     public List<UserResponse> findAll() {
         return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream()
                 .map(UserResponse::from)

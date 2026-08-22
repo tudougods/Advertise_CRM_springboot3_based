@@ -11,7 +11,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
@@ -87,7 +86,7 @@ class AdvertiserCategoryServiceTest {
     void listAndDetailReturnCategoryResponses() {
         AdvertiserCategory first = category(1L, "教育", AdvertiserStatus.ACTIVE, 1);
         AdvertiserCategory second = category(2L, "游戏", AdvertiserStatus.DISABLED, 2);
-        when(categoryMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
+        when(categoryMapper.selectList(any())).thenReturn(List.of(first, second));
         when(categoryMapper.selectById(1L)).thenReturn(first);
 
         List<AdvertiserCategoryResponse> list = categoryService.findAll();
@@ -95,7 +94,7 @@ class AdvertiserCategoryServiceTest {
 
         assertAll(
                 () -> assertEquals(List.of("教育", "游戏"),
-                        list.stream().map(AdvertiserCategoryResponse::name).toList()),
+                        list.stream().map(response -> response.name()).toList()),
                 () -> assertEquals("教育", detail.name()));
     }
 

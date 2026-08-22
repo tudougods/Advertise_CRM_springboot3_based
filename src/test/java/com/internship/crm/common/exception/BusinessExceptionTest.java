@@ -8,7 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import com.internship.crm.common.exception.CommonErrorCode;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 
 @DisplayName("业务异常模型")

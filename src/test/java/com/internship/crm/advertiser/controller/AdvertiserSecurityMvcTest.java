@@ -36,6 +36,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -60,6 +62,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @DisplayName("广告主管理接口与 RBAC 权限")
 @ExtendWith(ReadableTestResultExtension.class)
 class AdvertiserSecurityMvcTest {
+
+    private static final @NonNull MediaType JSON = Objects.requireNonNull(MediaType.APPLICATION_JSON);
 
     @Autowired
     private MockMvc mockMvc;
@@ -118,7 +122,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertisers")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-create")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"示例广告主\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
@@ -135,7 +139,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertisers")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-create")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"示例广告主\",\"registrationNo\":\"REG-011\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
@@ -151,7 +155,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(patch("/api/v1/advertisers/12/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-status")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"status\":\"DISABLED\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DISABLED"));
@@ -166,7 +170,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(patch("/api/v1/advertisers/15")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-update-advertiser")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"clearCategory\":true,\"clearOwner\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(15));
@@ -192,7 +196,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertisers")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"   \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
@@ -205,7 +209,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertisers")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-relations")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"非法关联\",\"categoryId\":0,\"ownerUserId\":-1}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
@@ -219,7 +223,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(patch("/api/v1/advertisers/15")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-conflicting-relations")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"categoryId\":2,\"clearCategory\":true}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
@@ -259,7 +263,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertiser-categories")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-category-create")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"电商\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
@@ -276,7 +280,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(post("/api/v1/advertiser-categories")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-category-create")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"name\":\"电商\",\"sortOrder\":1}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.id").value(21));
@@ -291,7 +295,7 @@ class AdvertiserSecurityMvcTest {
 
         mockMvc.perform(patch("/api/v1/advertiser-categories/22")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-category-update")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(JSON)
                         .content("{\"status\":\"DISABLED\",\"sortOrder\":9}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DISABLED"));

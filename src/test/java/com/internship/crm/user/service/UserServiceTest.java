@@ -12,7 +12,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.dto.request.CreateUserRequest;
@@ -115,14 +114,14 @@ class UserServiceTest {
     void listAndDetailReturnPublicUserResponses() {
         User first = user(1L, "first", UserRole.ADMIN, UserStatus.ACTIVE);
         User second = user(2L, "second", UserRole.OPERATOR, UserStatus.DISABLED);
-        when(userMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(first, second));
+        when(userMapper.selectList(any())).thenReturn(List.of(first, second));
         when(userMapper.selectById(1L)).thenReturn(first);
 
         List<UserResponse> list = userService.findAll();
         UserResponse detail = userService.findById(1L);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), list.stream().map(UserResponse::username).toList()),
+                () -> assertEquals(List.of("first", "second"), list.stream().map(response -> response.username()).toList()),
                 () -> assertEquals("first", detail.username()),
                 () -> assertFalse(detail.toString().contains("password-hash")));
     }
