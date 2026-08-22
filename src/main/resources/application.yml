@@ -3,6 +3,8 @@ server:
   shutdown: graceful
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: advertiser-crm
   autoconfigure:
@@ -13,7 +15,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:15432/advertiser_crm}
     username: ${DB_USERNAME:crm_user}
-    password: ${DB_PASSWORD:crm_password}
+    password: ${DB_PASSWORD:${POSTGRES_PASSWORD:change_me}}
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       minimum-idle: ${DB_POOL_MIN_IDLE:2}
@@ -29,6 +31,11 @@ mybatis-plus:
     map-underscore-to-camel-case: true
   global-config:
     banner: false
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
 
 management:
   endpoints:
@@ -50,6 +57,8 @@ springdoc:
     tags-sorter: alpha
 
 logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"
   level:
     root: INFO
     com.internship.crm: INFO
