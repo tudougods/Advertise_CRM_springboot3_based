@@ -2,7 +2,7 @@ package com.internship.crm.user.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.internship.crm.user.domain.User;
+import com.internship.crm.user.entity.User;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 

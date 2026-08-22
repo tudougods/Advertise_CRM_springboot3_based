@@ -1,6 +1,6 @@
 package com.internship.crm.auth.token;
 
-import com.internship.crm.user.domain.User;
+import com.internship.crm.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;

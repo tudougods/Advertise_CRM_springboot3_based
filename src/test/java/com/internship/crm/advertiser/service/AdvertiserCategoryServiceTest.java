@@ -12,12 +12,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.internship.crm.advertiser.api.AdvertiserCategoryResponse;
-import com.internship.crm.advertiser.api.CreateAdvertiserCategoryRequest;
-import com.internship.crm.advertiser.api.UpdateAdvertiserCategoryRequest;
-import com.internship.crm.advertiser.domain.AdvertiserCategory;
-import com.internship.crm.advertiser.domain.AdvertiserStatus;
-import com.internship.crm.advertiser.error.AdvertiserErrorCode;
+import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
+import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
+import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
+import com.internship.crm.advertiser.entity.AdvertiserCategory;
+import com.internship.crm.advertiser.entity.AdvertiserStatus;
+import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.testsupport.ReadableTestResultExtension;

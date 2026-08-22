@@ -135,13 +135,33 @@ com.internship.crm
 ├── config       # Spring 基础配置
 ├── auth         # 认证与权限
 ├── user         # 用户管理
-├── advertiser   # 广告商与联系人
-├── advertising  # 广告账户与投放计划
-├── metrics      # 日报导入
-└── reporting    # 统计报表
+└── advertiser   # 广告主管理与分类
 ```
 
-各业务模块在进入对应开发阶段时再建立 Controller、Service、Domain 和 Mapper，避免提前创建空壳分层。
+业务代码采用“按业务模块分包、模块内部传统分层”的统一规范。开发者先按业务定位模块，再按职责定位代码：
+
+```text
+user/
+├── controller/  # REST 接口入口，只处理 HTTP 协议和参数校验
+├── service/     # 用户业务规则与事务边界
+├── mapper/      # MyBatis-Plus 数据访问接口
+├── entity/      # 数据库实体与枚举
+├── dto/
+│   ├── request/ # Controller 接收的请求对象
+│   └── response/# Controller 返回的响应对象
+└── exception/   # 用户模块业务错误码
+```
+
+`advertiser` 模块遵循相同结构。`auth` 模块保留认证专用的 `security` 和 `token` 子包，同时使用 `controller`、`service`、`dto/request`、`dto/response` 和 `exception`。公共技术能力按职责划分为：
+
+```text
+common/
+├── response/    # 统一 API 响应
+├── exception/   # 公共错误码、业务异常和全局异常处理
+└── filter/      # 请求编号与日志过滤器
+```
+
+新业务模块进入开发阶段时再创建这些分层，避免提前建立空壳目录。禁止重新引入含义重叠的 `web`、`api`、`domain` 或 `error` 包，以保证所有模块命名一致。
 
 ## 设计文档
 

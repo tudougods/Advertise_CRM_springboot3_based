@@ -21,9 +21,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 
-import com.internship.crm.common.api.ApiResponse;
-import com.internship.crm.common.error.CommonErrorCode;
-import com.internship.crm.common.error.ErrorCode;
+import com.internship.crm.common.response.ApiResponse;
+import com.internship.crm.common.exception.CommonErrorCode;
+import com.internship.crm.common.exception.ErrorCode;
 
 /**
  * Converts application and Spring MVC exceptions into the common API envelope.

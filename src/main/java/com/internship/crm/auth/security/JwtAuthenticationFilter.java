@@ -1,8 +1,8 @@
 package com.internship.crm.auth.security;
 
 import com.internship.crm.auth.token.JwtTokenService;
-import com.internship.crm.user.domain.User;
-import com.internship.crm.user.domain.UserStatus;
+import com.internship.crm.user.entity.User;
+import com.internship.crm.user.entity.UserStatus;
 import com.internship.crm.user.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;

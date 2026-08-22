@@ -2,7 +2,7 @@ package com.internship.crm.advertiser.mapper;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.internship.crm.advertiser.domain.AdvertiserCategory;
+import com.internship.crm.advertiser.entity.AdvertiserCategory;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 
