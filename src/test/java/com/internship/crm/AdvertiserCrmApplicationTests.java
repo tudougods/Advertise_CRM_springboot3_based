@@ -46,11 +46,16 @@ class AdvertiserCrmApplicationTests {
 	private JwtTokenService jwtTokenService;
 
 	@Test
-	@DisplayName("Spring 配置、JWT、PostgreSQL、Flyway V1 和三张核心表均正常")
+	@DisplayName("Spring 配置、JWT、PostgreSQL、Flyway 迁移和三张核心表均正常")
 	void applicationContextAndDatabaseInitializationStateAreValid() throws SQLException {
 		MigrationInfo coreTableMigration = Arrays.stream(flyway.info().applied())
 				.filter(migration -> migration.getVersion() != null)
 				.filter(migration -> "1".equals(migration.getVersion().getVersion()))
+				.findFirst()
+				.orElse(null);
+		MigrationInfo pendingStatusMigration = Arrays.stream(flyway.info().applied())
+				.filter(migration -> migration.getVersion() != null)
+				.filter(migration -> "2".equals(migration.getVersion().getVersion()))
 				.findFirst()
 				.orElse(null);
 		Long coreTableCount = jdbcTemplate.queryForObject("""
@@ -61,6 +66,7 @@ class AdvertiserCrmApplicationTests {
 				""", Long.class);
 
 		assertNotNull(coreTableMigration, "数据库中应当存在 Flyway V1 的迁移记录");
+		assertNotNull(pendingStatusMigration, "数据库中应当存在 Flyway V2 的迁移记录");
 
 		try (Connection connection = dataSource.getConnection()) {
 			assertAll("应用与数据库初始化状态检查",
@@ -70,6 +76,8 @@ class AdvertiserCrmApplicationTests {
 							"应用应当成功连接 PostgreSQL"),
 					() -> assertEquals(MigrationState.SUCCESS, coreTableMigration.getState(),
 							"Flyway V1 的迁移历史状态应当为成功"),
+					() -> assertEquals(MigrationState.SUCCESS, pendingStatusMigration.getState(),
+							"Flyway V2 的迁移历史状态应当为成功"),
 					() -> assertEquals(3L, coreTableCount,
 							"Sprint 1 的三张核心表应当全部存在"));
 		}

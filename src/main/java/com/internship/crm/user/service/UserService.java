@@ -42,7 +42,7 @@ public class UserService {
 
     @Transactional
     public User registerOperator(String username, String password, String displayName, String email) {
-        return createUser(username, password, displayName, email, UserRole.OPERATOR, UserStatus.ACTIVE);
+        return createUser(username, password, displayName, email, UserRole.OPERATOR, UserStatus.PENDING);
     }
 
     @Transactional(readOnly = true)

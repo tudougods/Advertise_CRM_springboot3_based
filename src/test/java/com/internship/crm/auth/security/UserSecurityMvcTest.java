@@ -74,9 +74,9 @@ class UserSecurityMvcTest {
     private JwtTokenService jwtTokenService;
 
     @Test
-    @DisplayName("注册接口允许匿名访问且响应不包含密码字段")
+    @DisplayName("注册接口允许匿名提交待审批申请且响应不包含密码字段")
     void registrationIsPublicAndDoesNotExposePasswords() throws Exception {
-        UserResponse response = response(10L, UserRole.OPERATOR, UserStatus.ACTIVE);
+        UserResponse response = response(10L, UserRole.OPERATOR, UserStatus.PENDING);
         when(authService.register(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/register")
@@ -93,6 +93,7 @@ class UserSecurityMvcTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(10))
                 .andExpect(jsonPath("$.data.role").value("OPERATOR"))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.password").doesNotExist())
                 .andExpect(jsonPath("$.data.passwordHash").doesNotExist());
     }
@@ -149,6 +150,17 @@ class UserSecurityMvcTest {
 
         mockMvc.perform(get("/api/v1/users")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer disabled-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName("待审批账号即使持有有效 JWT 也返回 401")
+    void pendingAccountCannotUseAnExistingToken() throws Exception {
+        authorize("pending-token", user(22L, UserRole.OPERATOR, UserStatus.PENDING));
+
+        mockMvc.perform(get("/api/v1/users")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer pending-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH_UNAUTHORIZED"));
     }

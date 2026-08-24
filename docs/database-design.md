@@ -86,7 +86,7 @@ erDiagram
 | `display_name` | `VARCHAR(100)` | 否 | - | 用户显示名称 |
 | `email` | `VARCHAR(254)` | 是 | `NULL` | 邮箱；提供时不允许重复 |
 | `role` | `VARCHAR(20)` | 否 | `OPERATOR` | `ADMIN` 或 `OPERATOR` |
-| `status` | `VARCHAR(20)` | 否 | `ACTIVE` | `ACTIVE` 或 `DISABLED` |
+| `status` | `VARCHAR(20)` | 否 | `ACTIVE` | `PENDING`、`ACTIVE` 或 `DISABLED` |
 | `last_login_at` | `TIMESTAMPTZ` | 是 | `NULL` | 最近一次成功登录时间 |
 | `created_at` | `TIMESTAMPTZ` | 否 | `CURRENT_TIMESTAMP` | 创建时间 |
 | `updated_at` | `TIMESTAMPTZ` | 否 | `CURRENT_TIMESTAMP` | 最近更新时间 |
@@ -98,8 +98,8 @@ erDiagram
 - 邮箱不区分大小写唯一：`uk_users_email_lower`，仅对非空邮箱生效。
 - `username` 和 `display_name` 去除首尾空格后不能为空。
 - `role` 只允许 `ADMIN`、`OPERATOR`。
-- `status` 只允许 `ACTIVE`、`DISABLED`。
-- 普通注册只能创建 `OPERATOR`；创建或修改 `ADMIN` 必须由管理员完成。这一条由业务层保证。
+- `status` 只允许 `PENDING`、`ACTIVE`、`DISABLED`。
+- 普通注册只能创建 `PENDING OPERATOR`；激活账号及创建或修改 `ADMIN` 必须由管理员完成。这一条由业务层保证。
 
 ## 5. `advertiser_categories`
 
@@ -168,8 +168,8 @@ erDiagram
 
 以下规则不适合完全依赖数据库约束，后续在 Service 层实现：
 
-1. 用户注册时默认角色必须为 `OPERATOR`。
-2. 禁用用户不能登录。
+1. 用户注册时默认创建 `PENDING OPERATOR`，必须由管理员激活。
+2. 待审批或禁用用户不能登录。
 3. 至少保留一个可用的 `ADMIN`，不能禁用最后一个管理员。
 4. 只能给广告主分配状态为 `ACTIVE` 的分类和负责人。
 5. 分类或用户被禁用时，不自动修改已有广告主关系。

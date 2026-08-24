@@ -28,7 +28,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "注册普通用户", description = "公开注册始终创建 OPERATOR 角色")
+    @Operation(summary = "提交内部员工注册申请", description = "公开注册创建待管理员激活的 PENDING OPERATOR")
     public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(authService.register(request)));
     }
