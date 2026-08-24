@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -32,6 +33,17 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private static final String INVALID_TYPE_MESSAGE = "参数类型不正确";
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(RateLimitExceededException exception) {
+        ErrorCode errorCode = exception.errorCode();
+        log.warn("Rate limit rejected a request: code={} retryAfterSeconds={}",
+                errorCode.code(), exception.retryAfterSeconds());
+        return ResponseEntity
+                .status(errorCode.status())
+                .header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()))
+                .body(ApiResponse.failure(errorCode.code(), exception.getMessage(), null));
+    }
 
     @ExceptionHandler(BusinessException.class)
     ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {

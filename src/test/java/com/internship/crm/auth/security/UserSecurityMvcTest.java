@@ -1,6 +1,7 @@
 package com.internship.crm.auth.security;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.internship.crm.auth.dto.response.AuthResponse;
@@ -16,6 +18,8 @@ import com.internship.crm.auth.service.AuthService;
 import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.auth.controller.AuthController;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
+import com.internship.crm.common.exception.RateLimitExceededException;
+import com.internship.crm.auth.exception.AuthErrorCode;
 import com.internship.crm.common.filter.RequestLoggingFilter;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
@@ -77,7 +81,7 @@ class UserSecurityMvcTest {
     @DisplayName("注册接口允许匿名提交待审批申请且响应不包含密码字段")
     void registrationIsPublicAndDoesNotExposePasswords() throws Exception {
         UserResponse response = response(10L, UserRole.OPERATOR, UserStatus.PENDING);
-        when(authService.register(any())).thenReturn(response);
+        when(authService.register(any(), anyString())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(JSON)
@@ -101,7 +105,7 @@ class UserSecurityMvcTest {
     @Test
     @DisplayName("登录接口允许匿名访问并返回 Bearer JWT")
     void loginIsPublicAndReturnsABearerToken() throws Exception {
-        when(authService.login(any())).thenReturn(new AuthResponse(
+        when(authService.login(any(), anyString())).thenReturn(new AuthResponse(
                 "signed.jwt.token",
                 "Bearer",
                 3600,
@@ -119,6 +123,27 @@ class UserSecurityMvcTest {
                 .andExpect(jsonPath("$.data.accessToken").value("signed.jwt.token"))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.expiresIn").value(3600));
+    }
+
+    @Test
+    @DisplayName("认证请求超限返回统一 429 和 Retry-After")
+    void rateLimitedAuthenticationReturnsTheCommonResponse() throws Exception {
+        when(authService.login(any(), anyString()))
+                .thenThrow(new RateLimitExceededException(AuthErrorCode.RATE_LIMITED, 45));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(JSON)
+                        .content("""
+                                {
+                                  "username": "operator",
+                                  "password": "SecurePassword123!"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string(HttpHeaders.RETRY_AFTER, "45"))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("AUTH_RATE_LIMITED"))
+                .andExpect(jsonPath("$.message").value("请求过于频繁，请稍后再试"));
     }
 
     @Test
