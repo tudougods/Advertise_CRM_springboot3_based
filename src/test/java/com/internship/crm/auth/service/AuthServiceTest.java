@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.internship.crm.auth.dto.response.AuthResponse;
@@ -15,6 +17,7 @@ import com.internship.crm.auth.dto.request.RegisterRequest;
 import com.internship.crm.auth.exception.AuthErrorCode;
 import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.exception.RateLimitExceededException;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.dto.response.UserResponse;
 import com.internship.crm.user.entity.User;
@@ -44,11 +47,14 @@ class AuthServiceTest {
     @Mock
     private JwtTokenService jwtTokenService;
 
+    @Mock
+    private AuthRateLimiter authRateLimiter;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userService, passwordEncoder, jwtTokenService);
+        authService = new AuthService(userService, passwordEncoder, jwtTokenService, authRateLimiter);
     }
 
     @Test
@@ -64,13 +70,14 @@ class AuthServiceTest {
                 request.username(), request.password(), request.displayName(), request.email()))
                 .thenReturn(registered);
 
-        UserResponse response = authService.register(request);
+        UserResponse response = authService.register(request, "127.0.0.1");
 
         assertAll(
                 () -> assertEquals(1L, response.id()),
                 () -> assertEquals(UserRole.OPERATOR, response.role()),
                 () -> assertEquals(UserStatus.PENDING, response.status()),
                 () -> assertFalse(response.toString().contains("password-hash")));
+        verify(authRateLimiter).consumeRegistrationAttempt("127.0.0.1");
     }
 
     @Test
@@ -82,13 +89,17 @@ class AuthServiceTest {
         when(jwtTokenService.issueToken(user)).thenReturn("signed.jwt.token");
         when(jwtTokenService.expirationSeconds()).thenReturn(3600L);
 
-        AuthResponse response = authService.login(new LoginRequest("  operator  ", "correct-password"));
+        AuthResponse response = authService.login(
+                new LoginRequest("  operator  ", "correct-password"),
+                "127.0.0.1");
 
         assertAll(
                 () -> assertEquals("signed.jwt.token", response.accessToken()),
                 () -> assertEquals("Bearer", response.tokenType()),
                 () -> assertEquals(3600L, response.expiresIn()),
                 () -> assertEquals(2L, response.user().id()));
+        verify(authRateLimiter).consumeLoginAttempt("127.0.0.1", "operator");
+        verify(authRateLimiter).clearLoginAttempts("127.0.0.1", "operator");
         verify(userService).recordSuccessfulLogin(user);
     }
 
@@ -101,7 +112,7 @@ class AuthServiceTest {
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> authService.login(new LoginRequest("operator", "wrong-password")));
+                () -> authService.login(new LoginRequest("operator", "wrong-password"), "127.0.0.1"));
 
         assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode());
         verify(jwtTokenService, never()).issueToken(user);
@@ -115,7 +126,7 @@ class AuthServiceTest {
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> authService.login(new LoginRequest("missing", "any-password")));
+                () -> authService.login(new LoginRequest("missing", "any-password"), "127.0.0.1"));
 
         assertAll(
                 () -> assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode()),
@@ -131,7 +142,7 @@ class AuthServiceTest {
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> authService.login(new LoginRequest("operator", "correct-password")));
+                () -> authService.login(new LoginRequest("operator", "correct-password"), "127.0.0.1"));
 
         assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode());
         verify(passwordEncoder, never()).matches("correct-password", "password-hash");
@@ -146,12 +157,52 @@ class AuthServiceTest {
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> authService.login(new LoginRequest("operator", "correct-password")));
+                () -> authService.login(new LoginRequest("operator", "correct-password"), "127.0.0.1"));
 
         assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode());
         verify(passwordEncoder, never()).matches("correct-password", "password-hash");
         verify(jwtTokenService, never()).issueToken(pending);
         verify(userService, never()).recordSuccessfulLogin(pending);
+    }
+
+    @Test
+    @DisplayName("登录被限流时不会查询用户、校验密码或签发 Token")
+    void rateLimitedLoginStopsBeforeAuthenticationWork() {
+        RateLimitExceededException rateLimited =
+                new RateLimitExceededException(AuthErrorCode.RATE_LIMITED, 60);
+        doThrow(rateLimited)
+                .when(authRateLimiter)
+                .consumeLoginAttempt("127.0.0.1", "operator");
+
+        RateLimitExceededException exception = assertThrows(
+                RateLimitExceededException.class,
+                () -> authService.login(
+                        new LoginRequest("operator", "correct-password"),
+                        "127.0.0.1"));
+
+        assertSame(rateLimited, exception);
+        verifyNoInteractions(userService, passwordEncoder, jwtTokenService);
+        verify(authRateLimiter, never()).clearLoginAttempts("127.0.0.1", "operator");
+    }
+
+    @Test
+    @DisplayName("注册被限流时不会写入用户或执行密码加密")
+    void rateLimitedRegistrationStopsBeforeCreatingAUser() {
+        RegisterRequest request = new RegisterRequest(
+                "new.user",
+                "SecurePassword123!",
+                "新用户",
+                "new.user@example.com");
+        RateLimitExceededException rateLimited =
+                new RateLimitExceededException(AuthErrorCode.RATE_LIMITED, 300);
+        doThrow(rateLimited).when(authRateLimiter).consumeRegistrationAttempt("127.0.0.1");
+
+        RateLimitExceededException exception = assertThrows(
+                RateLimitExceededException.class,
+                () -> authService.register(request, "127.0.0.1"));
+
+        assertSame(rateLimited, exception);
+        verifyNoInteractions(userService, passwordEncoder, jwtTokenService);
     }
 
     private User user(Long id, UserStatus status) {

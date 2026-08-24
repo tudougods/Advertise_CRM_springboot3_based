@@ -20,18 +20,22 @@ public class AuthService {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final AuthRateLimiter authRateLimiter;
 
     public AuthService(
             UserService userService,
             PasswordEncoder passwordEncoder,
-            JwtTokenService jwtTokenService) {
+            JwtTokenService jwtTokenService,
+            AuthRateLimiter authRateLimiter) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.authRateLimiter = authRateLimiter;
     }
 
     @Transactional
-    public UserResponse register(RegisterRequest request) {
+    public UserResponse register(RegisterRequest request, String clientIp) {
+        authRateLimiter.consumeRegistrationAttempt(clientIp);
         User user = userService.registerOperator(
                 request.username(),
                 request.password(),
@@ -41,12 +45,15 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest request) {
-        User user = userService.findByUsername(request.username().trim())
+    public AuthResponse login(LoginRequest request, String clientIp) {
+        String username = request.username().trim();
+        authRateLimiter.consumeLoginAttempt(clientIp, username);
+        User user = userService.findByUsername(username)
                 .filter(candidate -> candidate.getStatus() == UserStatus.ACTIVE)
                 .filter(candidate -> passwordEncoder.matches(request.password(), candidate.getPasswordHash()))
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
 
+        authRateLimiter.clearLoginAttempts(clientIp, username);
         userService.recordSuccessfulLogin(user);
         String token = jwtTokenService.issueToken(user);
         return new AuthResponse(

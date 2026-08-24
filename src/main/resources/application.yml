@@ -36,6 +36,12 @@ security:
   jwt:
     secret: ${JWT_SECRET:}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  auth-rate-limit:
+    login-max-attempts: ${AUTH_LOGIN_MAX_ATTEMPTS:5}
+    login-window-minutes: ${AUTH_LOGIN_WINDOW_MINUTES:5}
+    registration-max-attempts: ${AUTH_REGISTRATION_MAX_ATTEMPTS:3}
+    registration-window-minutes: ${AUTH_REGISTRATION_WINDOW_MINUTES:60}
+    maximum-entries: ${AUTH_RATE_LIMIT_MAXIMUM_ENTRIES:10000}
 
 management:
   endpoints:

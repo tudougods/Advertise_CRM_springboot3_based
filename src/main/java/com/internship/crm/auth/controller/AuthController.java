@@ -8,6 +8,7 @@ import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,13 +30,18 @@ public class AuthController {
 
     @PostMapping("/register")
     @Operation(summary = "提交内部员工注册申请", description = "公开注册创建待管理员激活的 PENDING OPERATOR")
-    public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(authService.register(request)));
+    public ResponseEntity<ApiResponse<UserResponse>> register(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest servletRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(authService.register(request, servletRequest.getRemoteAddr())));
     }
 
     @PostMapping("/login")
     @Operation(summary = "登录并获取 JWT")
-    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.success(authService.login(request));
+    public ApiResponse<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest) {
+        return ApiResponse.success(authService.login(request, servletRequest.getRemoteAddr()));
     }
 }
