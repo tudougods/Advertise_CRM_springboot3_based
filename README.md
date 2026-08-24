@@ -69,7 +69,7 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 - `POST /api/v1/auth/register`：公开提交内部员工注册申请，创建 `PENDING OPERATOR`。
 - `POST /api/v1/auth/login`：登录并取得 Bearer JWT。
 - `POST /api/v1/users`：管理员创建用户。
-- `GET /api/v1/users`：管理员查询用户列表。
+- `GET /api/v1/users?page=1&size=20`：管理员分页查询用户列表。
 - `GET /api/v1/users/{id}`：管理员查询用户详情。
 - `PATCH /api/v1/users/{id}`：管理员修改用户、角色或状态。
 - `DELETE /api/v1/users/{id}`：管理员物理删除用户。
@@ -91,11 +91,13 @@ WHERE LOWER(username) = LOWER('替换为你的用户名');
 广告主接口：
 
 - `POST /api/v1/advertisers`：创建广告主。
-- `GET /api/v1/advertisers`：查询广告主列表。
+- `GET /api/v1/advertisers?page=1&size=20`：分页查询广告主列表。
 - `GET /api/v1/advertisers/{id}`：查询广告主详情。
 - `PATCH /api/v1/advertisers/{id}`：局部修改广告主档案。
 - `PATCH /api/v1/advertisers/{id}/status`：启用或禁用广告主。
 - `DELETE /api/v1/advertisers/{id}`：物理删除广告主。
+
+两个列表接口均默认返回第 1 页、每页 20 条，`size` 最大为 100。分页数据位于统一响应的 `data.items`，并同时返回 `page`、`size`、`total` 和 `totalPages`。
 
 广告主分类接口：
 

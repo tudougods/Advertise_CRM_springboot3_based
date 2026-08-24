@@ -1,6 +1,7 @@
 package com.internship.crm.advertiser.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
@@ -11,6 +12,7 @@ import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.user.entity.User;
 import com.internship.crm.user.entity.UserStatus;
 import com.internship.crm.user.mapper.UserMapper;
@@ -63,11 +65,15 @@ public class AdvertiserService {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
-    public List<AdvertiserResponse> findAll() {
-        return advertiserMapper.selectList(new LambdaQueryWrapper<Advertiser>().orderByAsc(Advertiser::getId))
+    public PageResponse<AdvertiserResponse> findAll(long page, long size) {
+        Page<Advertiser> result = advertiserMapper.selectPage(
+                new Page<>(page, size),
+                new LambdaQueryWrapper<Advertiser>().orderByAsc(Advertiser::getId));
+        List<AdvertiserResponse> items = result.getRecords()
                 .stream()
                 .map(AdvertiserResponse::from)
                 .toList();
+        return PageResponse.of(items, result.getCurrent(), result.getSize(), result.getTotal());
     }
 
     @Transactional(readOnly = true)

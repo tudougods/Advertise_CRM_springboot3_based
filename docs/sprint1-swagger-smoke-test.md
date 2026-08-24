@@ -211,7 +211,7 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 继续执行：
 
-1. `GET /api/v1/users`：预期 HTTP 200，列表中存在该用户。
+1. `GET /api/v1/users`：预期 HTTP 200，`data.items` 中存在该用户。
 2. `GET /api/v1/users/{ownerUserId}`：预期 HTTP 200，字段与创建结果一致。
 3. `PATCH /api/v1/users/{ownerUserId}`：修改显示名称。
 
@@ -279,7 +279,7 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 ### 6.6 查询和修改广告主
 
-1. `GET /api/v1/advertisers`：预期 HTTP 200，列表中存在测试广告主。
+1. `GET /api/v1/advertisers`：预期 HTTP 200，`data.items` 中存在测试广告主。
 2. `GET /api/v1/advertisers/{advertiserId}`：预期 HTTP 200，关联 ID 正确。
 3. `PATCH /api/v1/advertisers/{advertiserId}`：
 

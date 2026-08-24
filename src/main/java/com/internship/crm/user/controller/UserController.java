@@ -1,6 +1,7 @@
 package com.internship.crm.user.controller;
 
 import com.internship.crm.common.response.ApiResponse;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.user.dto.request.CreateUserRequest;
 import com.internship.crm.user.dto.request.UpdateUserRequest;
 import com.internship.crm.user.dto.response.UserResponse;
@@ -9,8 +10,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
@@ -43,9 +45,11 @@ public class UserController {
     }
 
     @GetMapping
-    @Operation(summary = "查询用户列表")
-    public ApiResponse<List<UserResponse>> findAll() {
-        return ApiResponse.success(userService.findAll());
+    @Operation(summary = "分页查询用户列表")
+    public ApiResponse<PageResponse<UserResponse>> findAll(
+            @Positive @RequestParam(defaultValue = "1") int page,
+            @Positive @Max(100) @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(userService.findAll(page, size));
     }
 
     @GetMapping("/{id}")

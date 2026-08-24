@@ -6,12 +6,13 @@ import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserStatusRequest;
 import com.internship.crm.advertiser.service.AdvertiserService;
 import com.internship.crm.common.response.ApiResponse;
+import com.internship.crm.common.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Validated
@@ -53,13 +55,15 @@ public class AdvertiserController {
     }
 
     @GetMapping
-    @Operation(summary = "查询广告主列表", description = "ADMIN 和 OPERATOR 均可查询，按广告主 ID 升序返回")
+    @Operation(summary = "分页查询广告主列表", description = "ADMIN 和 OPERATOR 均可查询，按广告主 ID 升序返回")
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或 JWT 无效")
     })
-    public ApiResponse<List<AdvertiserResponse>> findAll() {
-        return ApiResponse.success(advertiserService.findAll());
+    public ApiResponse<PageResponse<AdvertiserResponse>> findAll(
+            @Positive @RequestParam(defaultValue = "1") int page,
+            @Positive @Max(100) @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(advertiserService.findAll(page, size));
     }
 
     @GetMapping("/{id}")

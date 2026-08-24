@@ -12,7 +12,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.dto.request.CreateUserRequest;
 import com.internship.crm.user.dto.request.UpdateUserRequest;
@@ -114,14 +116,21 @@ class UserServiceTest {
     void listAndDetailReturnPublicUserResponses() {
         User first = user(1L, "first", UserRole.ADMIN, UserStatus.ACTIVE);
         User second = user(2L, "second", UserRole.OPERATOR, UserStatus.DISABLED);
-        when(userMapper.selectList(any())).thenReturn(List.of(first, second));
+        Page<User> result = new Page<>(2, 2, 5);
+        result.setRecords(List.of(first, second));
+        when(userMapper.selectPage(any(), any())).thenReturn(result);
         when(userMapper.selectById(1L)).thenReturn(first);
 
-        List<UserResponse> list = userService.findAll();
+        PageResponse<UserResponse> list = userService.findAll(2, 2);
         UserResponse detail = userService.findById(1L);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), list.stream().map(response -> response.username()).toList()),
+                () -> assertEquals(List.of("first", "second"), list.items().stream()
+                        .map(UserResponse::username).toList()),
+                () -> assertEquals(2, list.page()),
+                () -> assertEquals(2, list.size()),
+                () -> assertEquals(5, list.total()),
+                () -> assertEquals(3, list.totalPages()),
                 () -> assertEquals("first", detail.username()),
                 () -> assertFalse(detail.toString().contains("password-hash")));
     }
