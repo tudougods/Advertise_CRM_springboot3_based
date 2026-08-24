@@ -7,7 +7,7 @@
 本迭代先完成一条可运行、可验证的后端主链路：
 
 1. PostgreSQL 数据库能够通过 Flyway 自动初始化。
-2. 用户可以注册和登录，密码经过 BCrypt 加密，接口使用 JWT 鉴权。
+2. 用户可以提交注册申请并在管理员激活后登录，密码经过 BCrypt 加密，接口使用 JWT 鉴权。
 3. 管理员可以管理用户、角色和账号状态。
 4. 已授权用户可以管理广告主分类和广告主档案。
 5. 项目具备统一响应、异常处理、日志、Swagger 文档和基础自动化测试。
@@ -43,7 +43,7 @@ git switch -c feature/<task-name>
 | 4 | 用户管理、JWT 认证与 RBAC | `feature/user-management` | 已完成并合并 |
 | 5 | 广告主分类管理 | `feature/advertiser-management` | 已完成并合并，分类规则与关系行为已通过验证 |
 | 6 | 广告主管理 | `feature/advertiser-management` | 已完成并合并，CRUD、状态和关联规则已通过验证 |
-| 7 | Sprint 联调与验收 | `test/sprint1-smoke-acceptance` | 已完成：82 项自动化测试通过，用户与广告主 Swagger CRUD 验收通过 |
+| 7 | Sprint 联调与验收 | `test/sprint1-smoke-acceptance` | 已完成：85 项自动化测试通过，用户与广告主 Swagger CRUD 验收通过 |
 
 状态只在任务通过测试并合并到 `sprint1-backend-development` 后更新为“已完成”。
 
@@ -88,7 +88,7 @@ git switch -c feature/<task-name>
 
 - 建立用户实体、DTO、Mapper、Service 和 Controller。
 - 实现用户创建、列表、详情、局部修改、状态变更和删除。
-- 使用 `ACTIVE`、`DISABLED` 管理账号状态；`DELETE` 执行物理删除，关联广告主的负责人字段由外键规则置空。
+- 使用 `PENDING`、`ACTIVE`、`DISABLED` 管理账号状态；公开注册账号等待管理员激活，`DELETE` 执行物理删除，关联广告主的负责人字段由外键规则置空。
 - 保证用户名和邮箱的不区分大小写唯一性。
 
 完成标准：
@@ -105,12 +105,12 @@ git switch -c feature/<task-name>
 - 使用 BCrypt 保存密码摘要，不保存或记录明文密码。
 - 签发并校验 JWT，处理无令牌、无效令牌和过期令牌。
 - 实现 `ADMIN`、`OPERATOR` 两种角色的接口权限控制。
-- 禁止普通注册直接创建 `ADMIN`。
+- 普通注册固定创建 `PENDING OPERATOR`，禁止在管理员激活前登录或使用 JWT。
 
 完成标准：
 
 - 正确账号可以登录并访问已授权接口。
-- 错误密码、禁用账号和无效 JWT 均被拒绝。
+- 错误密码、待审批账号、禁用账号和无效 JWT 均被拒绝。
 - 普通用户无法访问管理员接口。
 
 ### 4.5 广告主分类管理
@@ -195,7 +195,7 @@ git switch -c feature/<task-name>
 - [x] 广告主 CRUD 与启用/禁用可用。
 - [x] 统一响应、异常处理和日志规范生效。
 - [x] Swagger 文档完整且与实际接口一致。
-- [x] 82 项基础单元测试、接口测试和数据库集成测试通过。
+- [x] 85 项基础单元测试、接口测试和数据库集成测试通过。
 - [x] 用户与广告主 Swagger CRUD 全流程通过：创建 201、查询/修改/删除 200、删除后查询 404。
 - [x] CRUD 验收截图和测试结论已归档至 `docs/Sprint1-测试验收报告.docx` 与 `docs/assets/sprint1-crud/`。
 - [x] 不包含 CSV、报表或 Agent 等 Sprint 1 范围外功能。

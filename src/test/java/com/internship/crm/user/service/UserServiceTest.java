@@ -154,6 +154,20 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("管理员可以将待审批账号激活")
+    void pendingAccountCanBeActivated() {
+        User pending = user(8L, "pending.user", UserRole.OPERATOR, UserStatus.PENDING);
+        when(userMapper.selectById(8L)).thenReturn(pending);
+
+        UserResponse response = userService.update(
+                8L,
+                new UpdateUserRequest(null, null, null, null, UserStatus.ACTIVE));
+
+        assertEquals(UserStatus.ACTIVE, response.status());
+        verify(userMapper).updateById(pending);
+    }
+
+    @Test
     @DisplayName("空的局部修改请求被拒绝")
     void emptyUpdateRequestIsRejected() {
         UpdateUserRequest emptyRequest = new UpdateUserRequest(null, null, null, null, null);
@@ -191,8 +205,8 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("公开注册创建的账号固定为启用的 OPERATOR")
-    void registrationAlwaysCreatesAnActiveOperator() {
+    @DisplayName("公开注册创建的账号固定为待审批的 OPERATOR")
+    void registrationAlwaysCreatesAPendingOperator() {
         when(passwordEncoder.encode("SecurePassword123!")).thenReturn("password-hash");
         when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
             User inserted = invocation.getArgument(0);
@@ -208,7 +222,7 @@ class UserServiceTest {
 
         assertAll(
                 () -> assertEquals(UserRole.OPERATOR, registered.getRole()),
-                () -> assertEquals(UserStatus.ACTIVE, registered.getStatus()),
+                () -> assertEquals(UserStatus.PENDING, registered.getStatus()),
                 () -> assertNull(registered.getEmail()),
                 () -> assertEquals("password-hash", registered.getPasswordHash()));
     }

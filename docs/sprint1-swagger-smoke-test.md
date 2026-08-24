@@ -7,7 +7,7 @@
 - Spring Boot 能正常启动。
 - PostgreSQL 可以连接，Flyway 迁移状态正常。
 - Swagger/OpenAPI 文档可以访问。
-- 注册、登录、JWT 鉴权和 RBAC 权限有效。
+- 注册、管理员审批、登录、JWT 鉴权和 RBAC 权限有效。
 - 用户管理 CRUD 可用。
 - 广告主 CRUD、状态管理和分类管理可用。
 - 统一响应、异常处理和请求日志正常。
@@ -21,7 +21,7 @@
 | 模块 | 验证内容 |
 | --- | --- |
 | 基础环境 | 应用启动、数据库连接、Flyway、健康检查、Swagger UI |
-| 认证 | 注册、登录、JWT Authorize、无效或缺失 Token |
+| 认证 | 注册、管理员审批、登录、JWT Authorize、无效或缺失 Token |
 | 用户 | 创建、列表、详情、局部修改、删除 |
 | 权限 | ADMIN 写权限、OPERATOR 只读权限、401 和 403 |
 | 广告主分类 | 创建、列表、详情、修改、删除 |
@@ -71,7 +71,7 @@ docker compose ps
 .\scripts\test.cmd
 ```
 
-预期：82 项测试全部通过。如果自动化测试失败，应先修复失败，不继续冒烟测试。
+预期：85 项测试全部通过。如果自动化测试失败，应先修复失败，不继续冒烟测试。
 
 ### 3.5 启动应用
 
@@ -101,13 +101,13 @@ docker compose ps
 
 ```sql
 UPDATE users
-SET role = 'ADMIN', updated_at = CURRENT_TIMESTAMP
+SET role = 'ADMIN', status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
 WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 ```
 
 4. 重新登录，使新签发的 Token 包含最新角色。
 
-公开注册只能创建 `OPERATOR`，不能通过注册请求直接创建管理员。
+公开注册只能创建 `PENDING OPERATOR`，不能通过注册请求直接创建管理员或启用账号。
 
 ### 4.2 注册本轮 OPERATOR
 
@@ -126,10 +126,22 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 - HTTP 201。
 - `success` 为 `true`，`code` 为 `OK`。
-- `data.role` 为 `OPERATOR`，`data.status` 为 `ACTIVE`。
+- `data.role` 为 `OPERATOR`，`data.status` 为 `PENDING`。
 - 记录 `data.id` 为 `operatorUserId`。
 
-### 4.3 分别登录两个角色
+### 4.3 管理员审批注册账号
+
+先登录 ADMIN 并在 Swagger 中填入 ADMIN Token，再执行 `PATCH /api/v1/users/{operatorUserId}`：
+
+```json
+{
+  "status": "ACTIVE"
+}
+```
+
+预期：HTTP 200，响应中的 `data.status` 为 `ACTIVE`。
+
+### 4.4 分别登录两个角色
 
 执行 `POST /api/v1/auth/login`，分别取得 ADMIN 和 OPERATOR 的 `data.accessToken`。
 
@@ -375,7 +387,7 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 | 编号 | 场景 | 接口 | 预期状态 | 实际状态 | 结果 | 备注/证据 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 健康检查 | `/actuator/health` | 200 |  | 待测 |  |
-| 2 | OPERATOR 注册和登录 | `/api/v1/auth/*` | 201/200 |  | 待测 |  |
+| 2 | OPERATOR 注册、审批和登录 | `/api/v1/auth/*`、`PATCH /api/v1/users/{id}` | 201/200/200 |  | 待测 |  |
 | 3 | 未登录访问受保护接口 | `GET /api/v1/advertisers` | 401 |  | 待测 |  |
 | 4 | OPERATOR 查询广告主 | `GET /api/v1/advertisers` | 200 |  | 待测 |  |
 | 5 | OPERATOR 执行写操作 | `POST /api/v1/advertisers` | 403 |  | 待测 |  |
@@ -411,9 +423,9 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 以下条件全部满足，Sprint 1 Swagger 冒烟测试才算通过：
 
-- 自动化测试 82/82 通过。
+- 自动化测试 85/85 通过。
 - 应用、数据库、健康检查和 Swagger UI 正常。
-- 注册、登录和 JWT 鉴权正常。
+- 注册、管理员审批、登录和 JWT 鉴权正常。
 - ADMIN 与 OPERATOR 权限边界符合设计。
 - 用户、广告主和分类的核心 CRUD 流程正常。
 - 广告主状态、负责人和分类关系可以正确修改。

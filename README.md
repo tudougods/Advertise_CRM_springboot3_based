@@ -66,7 +66,7 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 
 当前用户接口：
 
-- `POST /api/v1/auth/register`：公开注册 `OPERATOR` 用户。
+- `POST /api/v1/auth/register`：公开提交内部员工注册申请，创建 `PENDING OPERATOR`。
 - `POST /api/v1/auth/login`：登录并取得 Bearer JWT。
 - `POST /api/v1/users`：管理员创建用户。
 - `GET /api/v1/users`：管理员查询用户列表。
@@ -74,15 +74,15 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 - `PATCH /api/v1/users/{id}`：管理员修改用户、角色或状态。
 - `DELETE /api/v1/users/{id}`：管理员物理删除用户。
 
-公开注册不会创建管理员。仅在本地开发数据库首次初始化管理员时，先注册一个普通账号，再通过 pgAdmin Query Tool 或 `psql` 执行：
+公开注册不会创建管理员，注册账号必须由管理员激活后才能登录。仅在本地开发数据库首次初始化管理员时，先注册一个普通账号，再通过 pgAdmin Query Tool 或 `psql` 执行：
 
 ```sql
 UPDATE users
-SET role = 'ADMIN', updated_at = CURRENT_TIMESTAMP
+SET role = 'ADMIN', status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
 WHERE LOWER(username) = LOWER('替换为你的用户名');
 ```
 
-重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；合法的 `OPERATOR` Token 访问这些接口会返回 403。账号被设为 `DISABLED` 后，现有 Token 也不能继续访问受保护接口。
+重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；管理员通过 `PATCH /api/v1/users/{id}` 将注册账号从 `PENDING` 改为 `ACTIVE` 后，员工才能登录。合法的 `OPERATOR` Token 访问用户管理接口会返回 403；`PENDING` 或 `DISABLED` 账号不能登录，已有 Token 也不能继续访问受保护接口。
 
 ## 广告主管理
 

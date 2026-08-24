@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "普通用户注册请求")
+@Schema(description = "内部员工账号注册申请；提交后等待管理员激活")
 public record RegisterRequest(
         @NotBlank(message = "用户名不能为空")
         @Size(max = 50, message = "用户名不能超过 50 个字符")

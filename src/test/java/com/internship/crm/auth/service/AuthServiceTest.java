@@ -52,14 +52,14 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("注册请求创建普通用户并返回不含密码的用户信息")
+    @DisplayName("注册请求创建待审批普通用户并返回不含密码的用户信息")
     void registerCreatesAnOperatorAndReturnsAPublicResponse() {
         RegisterRequest request = new RegisterRequest(
                 "new.user",
                 "SecurePassword123!",
                 "新用户",
                 "new.user@example.com");
-        User registered = user(1L, UserStatus.ACTIVE);
+        User registered = user(1L, UserStatus.PENDING);
         when(userService.registerOperator(
                 request.username(), request.password(), request.displayName(), request.email()))
                 .thenReturn(registered);
@@ -69,6 +69,7 @@ class AuthServiceTest {
         assertAll(
                 () -> assertEquals(1L, response.id()),
                 () -> assertEquals(UserRole.OPERATOR, response.role()),
+                () -> assertEquals(UserStatus.PENDING, response.status()),
                 () -> assertFalse(response.toString().contains("password-hash")));
     }
 
@@ -135,6 +136,22 @@ class AuthServiceTest {
         assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode());
         verify(passwordEncoder, never()).matches("correct-password", "password-hash");
         verify(jwtTokenService, never()).issueToken(disabled);
+    }
+
+    @Test
+    @DisplayName("待审批账号不能登录且不会校验密码或签发 Token")
+    void pendingAccountCannotLogin() {
+        User pending = user(5L, UserStatus.PENDING);
+        when(userService.findByUsername("operator")).thenReturn(Optional.of(pending));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> authService.login(new LoginRequest("operator", "correct-password")));
+
+        assertSame(AuthErrorCode.INVALID_CREDENTIALS, exception.errorCode());
+        verify(passwordEncoder, never()).matches("correct-password", "password-hash");
+        verify(jwtTokenService, never()).issueToken(pending);
+        verify(userService, never()).recordSuccessfulLogin(pending);
     }
 
     private User user(Long id, UserStatus status) {
