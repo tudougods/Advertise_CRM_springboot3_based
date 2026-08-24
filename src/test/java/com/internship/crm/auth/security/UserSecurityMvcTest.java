@@ -1,7 +1,9 @@
 package com.internship.crm.auth.security;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,6 +23,7 @@ import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.exception.RateLimitExceededException;
 import com.internship.crm.auth.exception.AuthErrorCode;
 import com.internship.crm.common.filter.RequestLoggingFilter;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.dto.request.CreateUserRequest;
@@ -201,22 +204,42 @@ class UserSecurityMvcTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
 
-        verify(userService, never()).findAll();
+        verify(userService, never()).findAll(anyLong(), anyLong());
     }
 
     @Test
     @DisplayName("ADMIN 可以查询用户列表")
     void adminCanListUsers() throws Exception {
         authorize("admin-list-token", user(1L, UserRole.ADMIN, UserStatus.ACTIVE));
-        when(userService.findAll()).thenReturn(List.of(
+        when(userService.findAll(1, 20)).thenReturn(PageResponse.of(List.of(
                 response(1L, UserRole.ADMIN, UserStatus.ACTIVE),
-                response(2L, UserRole.OPERATOR, UserStatus.ACTIVE)));
+                response(2L, UserRole.OPERATOR, UserStatus.ACTIVE)), 1, 20, 2));
 
         mockMvc.perform(get("/api/v1/users")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-list-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].role").value("ADMIN"));
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].role").value("ADMIN"))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+
+        verify(userService).findAll(eq(1L), eq(20L));
+    }
+
+    @Test
+    @DisplayName("用户列表每页数量超过上限时返回统一 400 且不查询数据库")
+    void userPageSizeAboveLimitIsRejected() throws Exception {
+        authorize("admin-invalid-page-size", user(1L, UserRole.ADMIN, UserStatus.ACTIVE));
+
+        mockMvc.perform(get("/api/v1/users")
+                        .queryParam("size", "101")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-page-size"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(userService, never()).findAll(anyLong(), anyLong());
     }
 
     @Test

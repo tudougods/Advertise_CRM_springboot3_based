@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
@@ -21,6 +22,7 @@ import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.entity.User;
 import com.internship.crm.user.entity.UserStatus;
@@ -157,14 +159,21 @@ class AdvertiserServiceTest {
     void listAndDetailReturnAdvertiserResponses() {
         Advertiser first = advertiser(1L, "first", AdvertiserStatus.ACTIVE);
         Advertiser second = advertiser(2L, "second", AdvertiserStatus.DISABLED);
-        when(advertiserMapper.selectList(any())).thenReturn(List.of(first, second));
+        Page<Advertiser> result = new Page<>(2, 2, 5);
+        result.setRecords(List.of(first, second));
+        when(advertiserMapper.selectPage(any(), any())).thenReturn(result);
         when(advertiserMapper.selectById(1L)).thenReturn(first);
 
-        List<AdvertiserResponse> list = advertiserService.findAll();
+        PageResponse<AdvertiserResponse> list = advertiserService.findAll(2, 2);
         AdvertiserResponse detail = advertiserService.findById(1L);
 
         assertAll(
-                () -> assertEquals(List.of("first", "second"), list.stream().map(response -> response.name()).toList()),
+                () -> assertEquals(List.of("first", "second"), list.items().stream()
+                        .map(AdvertiserResponse::name).toList()),
+                () -> assertEquals(2, list.page()),
+                () -> assertEquals(2, list.size()),
+                () -> assertEquals(5, list.total()),
+                () -> assertEquals(3, list.totalPages()),
                 () -> assertEquals("first", detail.name()));
     }
 

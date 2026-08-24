@@ -1,6 +1,7 @@
 package com.internship.crm.advertiser.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import com.internship.crm.auth.security.RestAuthenticationEntryPoint;
 import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.filter.RequestLoggingFilter;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.entity.User;
@@ -93,13 +95,22 @@ class AdvertiserSecurityMvcTest {
     @DisplayName("OPERATOR 可以查询广告主列表")
     void operatorCanListAdvertisers() throws Exception {
         authorize("operator-list", user(2L, UserRole.OPERATOR));
-        when(advertiserService.findAll()).thenReturn(List.of(advertiserResponse(10L, AdvertiserStatus.ACTIVE)));
+        when(advertiserService.findAll(2, 1)).thenReturn(PageResponse.of(
+                List.of(advertiserResponse(10L, AdvertiserStatus.ACTIVE)), 2, 1, 3));
 
         mockMvc.perform(get("/api/v1/advertisers")
+                        .queryParam("page", "2")
+                        .queryParam("size", "1")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-list"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(10))
-                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"));
+                .andExpect(jsonPath("$.data.items[0].id").value(10))
+                .andExpect(jsonPath("$.data.items[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(1))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(3));
+
+        verify(advertiserService).findAll(eq(2L), eq(1L));
     }
 
     @Test

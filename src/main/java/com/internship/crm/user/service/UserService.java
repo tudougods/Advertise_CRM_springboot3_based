@@ -1,7 +1,9 @@
 package com.internship.crm.user.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.user.dto.request.CreateUserRequest;
 import com.internship.crm.user.dto.request.UpdateUserRequest;
 import com.internship.crm.user.dto.response.UserResponse;
@@ -65,10 +67,14 @@ public class UserService {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
-    public List<UserResponse> findAll() {
-        return userMapper.selectList(new LambdaQueryWrapper<User>().orderByAsc(User::getId)).stream()
+    public PageResponse<UserResponse> findAll(long page, long size) {
+        Page<User> result = userMapper.selectPage(
+                new Page<>(page, size),
+                new LambdaQueryWrapper<User>().orderByAsc(User::getId));
+        List<UserResponse> items = result.getRecords().stream()
                 .map(UserResponse::from)
                 .toList();
+        return PageResponse.of(items, result.getCurrent(), result.getSize(), result.getTotal());
     }
 
     @Transactional(readOnly = true)
