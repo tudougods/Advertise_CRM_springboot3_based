@@ -80,6 +80,8 @@ Sprint 完成时应满足：
 
 ## 4.1 板块 A：数据库与公共设计
 
+> 当前状态：已完成。`V3`～`V5`、Java 持久层、核心 SQL 说明和空库验收均已落地，详见 `docs/sprint2-database-design.md`。
+
 ### 目标
 
 先固定数据模型、状态枚举、金额精度和模块边界，避免数据模块和账户模块并行开发时反复改表。
@@ -95,7 +97,7 @@ Sprint 完成时应满足：
 | `recharge_orders` | 模拟充值订单 | 订单号唯一；维护支付状态和支付时间 |
 | `recharge_payment_callbacks` | 支付回调审计与幂等 | 支付方事件号唯一；记录处理结果，不记录敏感密钥 |
 
-建议迁移拆分：
+已实现迁移：
 
 - `V3__create_advertising_tables.sql`
 - `V4__create_advertiser_account_tables.sql`
@@ -104,7 +106,7 @@ Sprint 完成时应满足：
 
 ### 核心字段约定
 
-`advertising_delivery_records` 建议至少包含：
+`advertising_delivery_records` 实际包含：
 
 - `id`
 - `external_record_no`：外部/导入记录号，用于防止重复入库
@@ -119,16 +121,16 @@ Sprint 完成时应满足：
 
 数据库约束：指标和花费不得为负，`clicks <= impressions`，`conversions <= clicks`，`external_record_no` 唯一。
 
-账户和支付表必须使用外键关联 `advertisers`，但存在资金或投放历史的广告主不应继续物理删除。实现时应将 Sprint 1 的广告主删除规则调整为“有关联业务数据时返回 409”，避免级联删除审计数据。
+账户通过外键关联 `advertisers`，充值订单和回调再依次关联账户与订单。存在资金、投放或充值历史的广告主不能物理删除；当前实现会返回 `409 ADVERTISER_HAS_BUSINESS_DATA`，避免级联删除审计数据。
 
 ### 任务
 
-- [ ] 绘制 Sprint 2 ER 关系并确认删除策略。
-- [ ] 编写 `V3`、`V4` Flyway 迁移。
-- [ ] 为状态、金额、唯一性和外键添加数据库约束。
-- [ ] 创建实体、枚举和 Mapper 基础结构。
-- [ ] 在 `docs/sprint2-database-design.md` 记录表设计、核心 SQL 和索引理由。
-- [ ] 验证空库迁移和从现有 `V2` 升级两种路径。
+- [x] 绘制 Sprint 2 ER 关系并确认删除策略。
+- [x] 编写 `V3`～`V5` Flyway 迁移。
+- [x] 为状态、金额、唯一性和外键添加数据库约束。
+- [x] 创建实体、枚举和 Mapper 基础结构。
+- [x] 在 `docs/sprint2-database-design.md` 记录表设计、核心 SQL 和索引理由。
+- [x] 验证空库迁移和从现有 `V2` 升级两种路径。
 
 ### 完成标准
 

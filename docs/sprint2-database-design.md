@@ -1,10 +1,10 @@
 # Advertiser CRM Sprint 2 数据库设计
 
-> 状态：板块 A 模块 1——设计基线
+> 状态：板块 A 已实现并完成验收（2026-08-26）
 >
 > 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V5`
 >
-> 本文先固定命名、关系和约束；具体建表 SQL 在后续模块中实现并以自动化测试验证
+> 本文记录 `V3`～`V5` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
 
 ## 1. 设计目标
 
@@ -105,7 +105,7 @@ erDiagram
 
 广告形式字典，与表示广告主行业的 `advertiser_categories` 分开。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -122,7 +122,7 @@ erDiagram
 
 保存用于统计的投放事实。Sprint 2 的一行表示“一条有唯一外部编号、归属于某广告主和广告类型、发生在某业务日期的投放数据”。同一广告主、广告类型和日期允许存在多条不同来源记录，避免错误限制未来批次或渠道导入。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -138,20 +138,20 @@ erDiagram
 | `created_at` | `TIMESTAMPTZ` | 非空 |
 | `updated_at` | `TIMESTAMPTZ` | 非空 |
 
-初始查询索引候选：
+已实现索引：
 
 - 唯一索引：`external_record_no`。
 - 日期范围：`record_date`。
 - 广告主时间范围：`(advertiser_id, record_date)`。
 - 广告类型时间范围：`(advertising_type_id, record_date)`。
 
-最终索引需要在报表 SQL 完成后用足量模拟数据和 `EXPLAIN ANALYZE` 验证。
+这些索引覆盖当前已确定的日期范围、广告主时间范围和广告类型时间范围查询。板块 C 落地聚合 SQL 后，仍需使用足量模拟数据和 `EXPLAIN ANALYZE` 验证执行计划。
 
 ## 5.3 `advertiser_accounts`
 
 保存账户当前余额，不承担历史审计职责。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -173,7 +173,7 @@ erDiagram
 
 保存每一次余额变化。流水只追加，不提供修改和删除接口。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -200,7 +200,7 @@ erDiagram
 
 保存一次模拟充值的支付过程，支付未成功时不会产生资金流水。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -222,13 +222,13 @@ PENDING -> FAILED
 PENDING -> CLOSED
 ```
 
-终态不能回退。一笔成功订单最多对应一笔 `RECHARGE` 资金流水，`recharge_order_id` 需要唯一约束或等价的幂等保护。
+终态不能回退。一笔成功订单最多对应一笔 `RECHARGE` 资金流水；`V5` 已通过 `recharge_order_id` 的部分唯一索引提供数据库级幂等保护。
 
 ## 5.6 `recharge_payment_callbacks`
 
 保存支付平台通知的接收和处理结果，主要用于审计与幂等。
 
-建议字段：
+实际字段：
 
 | 字段 | 类型 | 规则 |
 | --- | --- | --- |
@@ -346,19 +346,121 @@ payment/
     └── RechargePaymentCallbackMapper.java
 ```
 
-模块 1 只固定以上边界，不提前建立空包。实体、Mapper 和迁移将在对应后续模块一起增加。
+上述实体、枚举和 Mapper 已在板块 A 模块 2～4 中落地，字段映射由 PostgreSQL 持久化测试验证。
 
-## 10. 板块 A 验收基线
+## 10. 核心 SQL 设计
 
-后续模块全部完成后需要验证：
+以下 SQL 使用命名参数表达接口输入，属于后续业务模块应复用的数据库访问模式。
 
-- 空数据库能连续执行 `V1`～`V5`。
-- 现有 `V2` 数据库能无损升级到 `V5`。
-- 6 张新表、外键、检查约束和唯一索引存在。
-- 现有广告主全部获得零余额账户。
-- 新广告主创建时同步获得账户。
-- 非法指标、负余额、非正金额和非法状态被数据库拒绝。
-- 4 类业务编号均能阻止对应的重复操作。
-- 存在业务历史的广告主不能物理删除。
-- Java 实体字段和数据库列一一对应。
-- Sprint 1 全量测试仍然通过。
+### 10.1 多维投放统计
+
+```sql
+SELECT
+    record_date,
+    advertiser_id,
+    advertising_type_id,
+    SUM(impressions) AS impressions,
+    SUM(clicks) AS clicks,
+    SUM(conversions) AS conversions,
+    SUM(spend) AS spend,
+    COALESCE(
+        SUM(clicks)::NUMERIC / NULLIF(SUM(impressions), 0),
+        0
+    ) AS ctr
+FROM advertising_delivery_records
+WHERE record_date BETWEEN :start_date AND :end_date
+  AND (:advertiser_id IS NULL OR advertiser_id = :advertiser_id)
+  AND (:advertising_type_id IS NULL OR advertising_type_id = :advertising_type_id)
+GROUP BY record_date, advertiser_id, advertising_type_id
+ORDER BY record_date, advertiser_id, advertising_type_id;
+```
+
+统计直接在 PostgreSQL 中聚合，避免把明细全部加载到 Java 内存。CTR 先汇总分子和分母，再通过 `NULLIF` 防止除零；不能平均每条记录的 CTR。
+
+### 10.2 原子消费扣款
+
+```sql
+UPDATE advertiser_accounts
+SET balance = balance - :amount,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = :account_id
+  AND balance >= :amount
+RETURNING balance;
+```
+
+这条 SQL 是板块 D 的实现基线。余额检查和扣减在同一语句完成，可以避免“先查询余额、再更新”产生的并发超扣。返回零行时，由 Service 区分账户不存在和余额不足；成功后在同一事务中写入资金流水。
+
+### 10.3 支付回调幂等
+
+```sql
+SELECT id, status, amount, advertiser_account_id
+FROM recharge_orders
+WHERE order_no = :order_no
+FOR UPDATE;
+```
+
+板块 E 处理回调时先锁定订单，再在同一事务中更新订单、账户、资金流水和回调状态。数据库同时提供三层唯一性保护：
+
+- `provider_event_id`：同一支付事件只能保存一次。
+- `business_no`：同一资金业务只能生成一条流水。
+- `recharge_order_id`：一笔充值订单最多关联一条资金流水。
+
+### 10.4 删除前业务历史检查
+
+广告主删除由 Service 先检查投放记录、账户流水和充值订单。涉及投放、资金和支付历史的外键使用 `RESTRICT`；只有审计字段 `created_by` 在删除内部用户时使用 `SET NULL`。没有业务历史的零余额账户可以随广告主显式删除。
+
+## 11. 索引设计说明
+
+| 查询或幂等场景 | 实际索引 | 设计理由 |
+| --- | --- | --- |
+| 广告类型代码查询 | `uk_advertising_types_code_lower` | 使用 `LOWER(code)` 保证代码不区分大小写唯一 |
+| 投放重复入库 | `uk_advertising_delivery_external_record_no` | 外部记录号作为投放幂等键 |
+| 投放日期范围 | `idx_advertising_delivery_record_date` | 支持时间维度明细和聚合 |
+| 广告主 + 日期 | `idx_advertising_delivery_advertiser_date` | 支持指定广告主的时间范围查询 |
+| 广告类型 + 日期 | `idx_advertising_delivery_type_date` | 支持指定广告类型的时间范围查询 |
+| 一广告主一账户 | `uk_advertiser_accounts_advertiser_id` | 同时保证一对一关系并支持账户定位 |
+| 资金业务幂等 | `uk_account_transactions_business_no` | 防止同一充值或消费业务重复记账 |
+| 账户流水分页 | `idx_account_transactions_account_created` | 支持按账户倒序查询历史流水 |
+| 投放记录关联流水 | `idx_account_transactions_delivery_record` | 仅索引非空关联，支持判断投放记录是否已结算 |
+| 充值订单查询 | `uk_recharge_orders_order_no` | 保证订单号唯一并支持精确定位 |
+| 支付平台流水 | `uk_recharge_orders_provider_transaction_no` | 非空时唯一，防止平台交易重复绑定 |
+| 账户充值历史 | `idx_recharge_orders_account_created` | 支持按账户倒序查询充值订单 |
+| 待处理订单 | `idx_recharge_orders_status_created` | 支持按状态和创建时间扫描订单 |
+| 回调事件幂等 | `uk_recharge_callbacks_provider_event_id` | 防止同一支付事件重复保存 |
+| 订单回调历史 | `idx_recharge_callbacks_order_received` | 支持按订单倒序查询回调审计记录 |
+| 订单与流水一对一 | `uk_account_transactions_recharge_order_id` | 非空时唯一，防止充值重复入账 |
+
+索引是否被使用取决于数据量和过滤条件。小数据量下 PostgreSQL 选择顺序扫描是正常行为；板块 C 和 F 应在固定模拟数据集上记录 `EXPLAIN ANALYZE`，而不是以是否出现 `Index Scan` 作为唯一验收条件。
+
+## 12. 板块 A 验收结果
+
+验收日期：2026-08-26。
+
+| 验收项 | 结果 | 证据 |
+| --- | --- | --- |
+| 空数据库执行 `V1`～`V5` | 通过 | 独立临时数据库从 Empty Schema 连续应用 5 个迁移并到达 V5 |
+| 现有 Sprint 1 数据库升级 | 通过 | 开发过程中按 `V2 -> V3 -> V4 -> V5` 顺序增量升级，无需修改既有迁移 |
+| 6 张新表及预置字典 | 通过 | V3～V5 结构测试验证表、列及 4 条广告类型数据 |
+| 外键、检查约束和唯一索引 | 通过 | 非法指标、金额、状态、时间关系及重复业务号均被 PostgreSQL 拒绝 |
+| 账户初始化 | 通过 | V4 为已有广告主补建账户，新建广告主在同一事务中创建零余额账户 |
+| 历史数据删除保护 | 通过 | 投放记录、资金流水或充值订单存在时阻止物理删除广告主 |
+| Java 持久化映射 | 通过 | 投放、账户、流水、订单和回调均完成 Mapper 读写测试 |
+| 回归测试 | 通过 | 在空库迁移后运行完整测试：154 项通过，0 失败，0 错误，0 跳过 |
+
+其中板块 A 新增的 PostgreSQL 持久化测试共 46 项：
+
+- `AdvertisingPersistenceTest`：12 项。
+- `AdvertiserAccountPersistenceTest`：14 项。
+- `RechargePaymentPersistenceTest`：20 项。
+
+验收使用的临时数据库在测试完成后已删除；现有开发数据库和业务数据未被清理或重建。
+
+## 13. 当前边界与后续使用
+
+板块 A 已完成数据库和持久层基础，以及广告主账户创建和删除保护所需的生命周期协作；不包含投放、账户交易或支付接口的 Controller 和完整业务流程。后续模块按以下方式复用：
+
+- 板块 B 使用 `advertising_types` 和 `advertising_delivery_records` 实现投放录入与组合查询。
+- 板块 C 基于投放事实表和既有复合索引实现多维统计及报表。
+- 板块 D 使用账户表和不可变流水实现余额查询、充值及原子消费。
+- 板块 E 使用充值订单、回调审计和三层唯一键实现模拟支付与幂等入账。
+- 板块 F 使用固定数据集和 `EXPLAIN ANALYZE` 验证高频查询的索引效果。
