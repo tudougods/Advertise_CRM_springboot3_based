@@ -53,6 +53,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/advertiser-categories/**")
                     .hasAnyRole("ADMIN", "OPERATOR")
                 .requestMatchers("/api/v1/advertiser-categories/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertising-types/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
