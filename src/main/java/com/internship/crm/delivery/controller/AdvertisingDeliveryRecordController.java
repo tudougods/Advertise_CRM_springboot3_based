@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -111,5 +112,21 @@ public class AdvertisingDeliveryRecordController {
             @Positive @PathVariable Long id,
             @Valid @RequestBody UpdateAdvertisingDeliveryRecordRequest request) {
         return ApiResponse.success(deliveryRecordService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(
+            summary = "删除投放记录",
+            description = "仅 ADMIN 可用；已关联资金流水的投放记录不能删除")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "删除成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或 JWT 无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "角色权限不足"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "投放记录不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "投放记录已关联资金流水")
+    })
+    public ApiResponse<Void> delete(@Positive @PathVariable Long id) {
+        deliveryRecordService.delete(id);
+        return ApiResponse.successWithoutData();
     }
 }

@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @DisplayName("广告投放记录 Service 业务规则")
 @ExtendWith({MockitoExtension.class, ReadableTestResultExtension.class})
@@ -356,6 +357,57 @@ class AdvertisingDeliveryRecordServiceTest {
                                 null, null, LocalDate.of(2026, 8, 27), null, null, null, null)));
 
         assertSame(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("未关联资金流水的投放记录可以直接删除")
+    void deleteRemovesUnreferencedRecord() {
+        when(deliveryRecordMapper.deleteIfUnreferenced(11L)).thenReturn(1);
+
+        deliveryRecordService.delete(11L);
+
+        verify(deliveryRecordMapper).deleteIfUnreferenced(11L);
+        verify(deliveryRecordMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("删除结果为零且记录不存在时返回明确 404")
+    void deleteMissingRecordReturnsNotFound() {
+        when(deliveryRecordMapper.deleteIfUnreferenced(404L)).thenReturn(0);
+        when(deliveryRecordMapper.selectById(404L)).thenReturn(null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.delete(404L));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("已关联资金流水的投放记录返回明确 409")
+    void deleteReferencedRecordReturnsConflict() {
+        when(deliveryRecordMapper.deleteIfUnreferenced(11L)).thenReturn(0);
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(deliveryRecord());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.delete(11L));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_IN_USE, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("并发关联触发外键冲突时转换为明确 409")
+    void deleteConstraintRaceReturnsConflict() {
+        when(deliveryRecordMapper.deleteIfUnreferenced(11L))
+                .thenThrow(new DataIntegrityViolationException("concurrent reference"));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.delete(11L));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_IN_USE, exception.errorCode());
+        assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
     }
 
     @Test

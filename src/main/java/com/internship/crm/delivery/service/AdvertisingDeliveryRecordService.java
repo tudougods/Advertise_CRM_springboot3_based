@@ -22,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,6 +110,22 @@ public class AdvertisingDeliveryRecordService {
             throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
         }
         return findById(id);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        try {
+            if (deliveryRecordMapper.deleteIfUnreferenced(id) == 1) {
+                return;
+            }
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_IN_USE, exception);
+        }
+
+        if (deliveryRecordMapper.selectById(id) == null) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+        }
+        throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_IN_USE);
     }
 
     @Transactional(readOnly = true)

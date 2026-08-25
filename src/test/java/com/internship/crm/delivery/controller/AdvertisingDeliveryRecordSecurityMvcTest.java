@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -339,6 +340,58 @@ class AdvertisingDeliveryRecordSecurityMvcTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("DELIVERY_NO_FIELDS_TO_UPDATE"));
+    }
+
+    @Test
+    @DisplayName("ADMIN 可以删除未结算的投放记录")
+    void adminCanDeleteDeliveryRecord() throws Exception {
+        authorize("admin-delete-delivery", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(delete("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-delete-delivery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(deliveryRecordService).delete(11L);
+    }
+
+    @Test
+    @DisplayName("OPERATOR 不能删除投放记录")
+    void operatorCannotDeleteDeliveryRecord() throws Exception {
+        authorize("operator-delete-delivery", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(delete("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-delete-delivery"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
+
+        verify(deliveryRecordService, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("已关联资金流水的投放记录删除返回明确 409")
+    void referencedDeliveryRecordReturnsConflict() throws Exception {
+        authorize("admin-delete-referenced-delivery", user(1L, UserRole.ADMIN));
+        doThrow(new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_IN_USE))
+                .when(deliveryRecordService).delete(11L);
+
+        mockMvc.perform(delete("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-delete-referenced-delivery"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RECORD_IN_USE"));
+    }
+
+    @Test
+    @DisplayName("删除不存在的投放记录返回明确 404")
+    void deletingMissingDeliveryRecordReturnsNotFound() throws Exception {
+        authorize("admin-delete-missing-delivery", user(1L, UserRole.ADMIN));
+        doThrow(new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND))
+                .when(deliveryRecordService).delete(404L);
+
+        mockMvc.perform(delete("/api/v1/delivery-records/404")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-delete-missing-delivery"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RECORD_NOT_FOUND"));
     }
 
     private void authorize(String token, User user) {

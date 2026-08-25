@@ -3,6 +3,7 @@ package com.internship.crm.delivery.mapper;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -249,6 +250,55 @@ class AdvertisingPersistenceTest {
                 () -> assertEquals(new BigDecimal("500.00"), updated.spend()),
                 () -> assertEquals(created.externalRecordNo(), reloaded.getExternalRecordNo()),
                 () -> assertEquals(updated.advertisingTypeId(), reloaded.getAdvertisingTypeId()));
+    }
+
+    @Test
+    @DisplayName("Service 可以物理删除未关联资金流水的投放记录")
+    void serviceDeletesUnreferencedDeliveryRecord() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(advertiser.id(), "SEARCH", LocalDate.of(2026, 8, 20)));
+
+        deliveryRecordService.delete(created.id());
+
+        assertNull(deliveryRecordMapper.selectById(created.id()));
+    }
+
+    @Test
+    @DisplayName("Service 拒绝删除已关联资金流水的投放记录并保留历史")
+    void serviceRejectsDeletingReferencedDeliveryRecord() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(advertiser.id(), "SEARCH", LocalDate.of(2026, 8, 20)));
+        Long accountId = jdbcTemplate.queryForObject(
+                "SELECT id FROM advertiser_accounts WHERE advertiser_id = ?",
+                Long.class,
+                advertiser.id());
+        String businessNo = "CONSUME-" + UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO advertiser_account_transactions (
+                    advertiser_account_id,
+                    business_no,
+                    transaction_type,
+                    amount,
+                    balance_after,
+                    advertising_delivery_record_id,
+                    created_at
+                ) VALUES (?, ?, 'CONSUMPTION', 1.00, 0.00, ?, CURRENT_TIMESTAMP)
+                """, accountId, businessNo, created.id());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.delete(created.id()));
+        Long transactionCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM advertiser_account_transactions WHERE business_no = ?",
+                Long.class,
+                businessNo);
+
+        assertAll(
+                () -> assertEquals(DeliveryErrorCode.DELIVERY_RECORD_IN_USE, exception.errorCode()),
+                () -> assertNotNull(deliveryRecordMapper.selectById(created.id())),
+                () -> assertEquals(1L, transactionCount));
     }
 
     @Test

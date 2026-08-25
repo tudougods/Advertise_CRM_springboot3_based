@@ -7,6 +7,7 @@ import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordRespons
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
 import java.time.LocalDate;
 import java.util.Optional;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Options;
@@ -45,6 +46,17 @@ public interface AdvertisingDeliveryRecordMapper extends BaseMapper<AdvertisingD
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insertIfExternalRecordNoAbsent(AdvertisingDeliveryRecord record);
+
+    @Delete("""
+            DELETE FROM advertising_delivery_records record
+            WHERE record.id = #{id}
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM advertiser_account_transactions account_transaction
+                  WHERE account_transaction.advertising_delivery_record_id = record.id
+              )
+            """)
+    int deleteIfUnreferenced(@Param("id") Long id);
 
     @Select("""
             SELECT
