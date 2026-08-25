@@ -32,6 +32,9 @@ public class AdvertiserAccountTransaction {
     @TableField(value = "advertising_delivery_record_id", updateStrategy = FieldStrategy.ALWAYS)
     private Long advertisingDeliveryRecordId;
 
+    @TableField(value = "recharge_order_id", updateStrategy = FieldStrategy.ALWAYS)
+    private Long rechargeOrderId;
+
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
 
@@ -95,6 +98,14 @@ public class AdvertiserAccountTransaction {
 
     public void setAdvertisingDeliveryRecordId(Long advertisingDeliveryRecordId) {
         this.advertisingDeliveryRecordId = advertisingDeliveryRecordId;
+    }
+
+    public Long getRechargeOrderId() {
+        return rechargeOrderId;
+    }
+
+    public void setRechargeOrderId(Long rechargeOrderId) {
+        this.rechargeOrderId = rechargeOrderId;
     }
 
     public String getRemark() {

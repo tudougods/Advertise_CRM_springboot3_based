@@ -6,6 +6,7 @@ import com.internship.crm.account.mapper.AdvertiserAccountTransactionMapper;
 import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.delivery.mapper.AdvertisingDeliveryRecordMapper;
+import com.internship.crm.payment.mapper.RechargeOrderMapper;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
@@ -19,14 +20,17 @@ public class AdvertiserAccountLifecycleService {
     private final AdvertiserAccountMapper accountMapper;
     private final AdvertiserAccountTransactionMapper transactionMapper;
     private final AdvertisingDeliveryRecordMapper deliveryRecordMapper;
+    private final RechargeOrderMapper rechargeOrderMapper;
 
     public AdvertiserAccountLifecycleService(
             AdvertiserAccountMapper accountMapper,
             AdvertiserAccountTransactionMapper transactionMapper,
-            AdvertisingDeliveryRecordMapper deliveryRecordMapper) {
+            AdvertisingDeliveryRecordMapper deliveryRecordMapper,
+            RechargeOrderMapper rechargeOrderMapper) {
         this.accountMapper = accountMapper;
         this.transactionMapper = transactionMapper;
         this.deliveryRecordMapper = deliveryRecordMapper;
+        this.rechargeOrderMapper = rechargeOrderMapper;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -46,7 +50,8 @@ public class AdvertiserAccountLifecycleService {
         }
 
         accountMapper.findByAdvertiserId(advertiserId).ifPresent(account -> {
-            if (transactionMapper.existsByAdvertiserAccountId(account.getId())) {
+            if (transactionMapper.existsByAdvertiserAccountId(account.getId())
+                    || rechargeOrderMapper.existsByAdvertiserAccountId(account.getId())) {
                 throw new BusinessException(AdvertiserErrorCode.ADVERTISER_HAS_BUSINESS_DATA);
             }
             accountMapper.deleteById(account.getId());
