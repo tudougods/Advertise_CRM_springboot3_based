@@ -97,12 +97,12 @@ WHERE LOWER(username) = LOWER('替换为你的用户名');
 - `PATCH /api/v1/advertisers/{id}/status`：启用或禁用广告主。
 - `DELETE /api/v1/advertisers/{id}`：物理删除广告主。
 
-两个列表接口均默认返回第 1 页、每页 20 条，`size` 最大为 100。分页数据位于统一响应的 `data.items`，并同时返回 `page`、`size`、`total` 和 `totalPages`。
+用户、广告主和广告主分类三个列表接口均默认返回第 1 页、每页 20 条，`size` 最大为 100。分页数据位于统一响应的 `data.items`，并同时返回 `page`、`size`、`total` 和 `totalPages`。
 
 广告主分类接口：
 
 - `POST /api/v1/advertiser-categories`：创建分类。
-- `GET /api/v1/advertiser-categories`：查询分类列表。
+- `GET /api/v1/advertiser-categories?page=1&size=20`：分页查询分类列表。
 - `GET /api/v1/advertiser-categories/{id}`：查询分类详情。
 - `PATCH /api/v1/advertiser-categories/{id}`：修改分类、状态或展示顺序。
 - `DELETE /api/v1/advertiser-categories/{id}`：删除分类；已有广告主保留，`categoryId` 自动置空。

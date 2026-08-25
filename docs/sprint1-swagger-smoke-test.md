@@ -186,7 +186,7 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 使用 OPERATOR Token Authorize：
 
 1. `GET /api/v1/advertisers`：预期 HTTP 200。
-2. `GET /api/v1/advertiser-categories`：预期 HTTP 200。
+2. `GET /api/v1/advertiser-categories?page=1&size=20`：预期 HTTP 200，分类位于 `data.items`。
 3. `POST /api/v1/advertisers`：预期 HTTP 403。
 4. `GET /api/v1/users`：预期 HTTP 403。
 
@@ -242,7 +242,7 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 继续执行：
 
-1. `GET /api/v1/advertiser-categories`：预期 HTTP 200，列表中存在该分类。
+1. `GET /api/v1/advertiser-categories?page=1&size=20`：预期 HTTP 200，`data.items` 中存在该分类，并返回 `page`、`size`、`total` 和 `totalPages`。
 2. `GET /api/v1/advertiser-categories/{categoryId}`：预期 HTTP 200。
 3. `PATCH /api/v1/advertiser-categories/{categoryId}`：
 
