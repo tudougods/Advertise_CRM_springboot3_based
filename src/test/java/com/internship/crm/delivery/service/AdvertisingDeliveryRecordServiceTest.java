@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -14,6 +15,8 @@ import com.internship.crm.advertiser.entity.Advertiser;
 import com.internship.crm.advertiser.entity.AdvertiserStatus;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
@@ -27,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +43,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@DisplayName("投放数据入库 Service 业务规则")
+@DisplayName("广告投放记录 Service 业务规则")
 @ExtendWith({MockitoExtension.class, ReadableTestResultExtension.class})
 class AdvertisingDeliveryRecordServiceTest {
 
@@ -106,6 +110,96 @@ class AdvertisingDeliveryRecordServiceTest {
                 deliveryRecordService.create(validRequest()));
 
         assertSame(DeliveryErrorCode.EXTERNAL_RECORD_NO_ALREADY_EXISTS, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("详情查询返回包含广告主和类型名称的投放记录")
+    void findByIdReturnsDeliveryRecordDetails() {
+        AdvertisingDeliveryRecordResponse expected = response(11L, "DELIVERY-001");
+        when(deliveryRecordMapper.selectDetailById(11L)).thenReturn(expected);
+
+        AdvertisingDeliveryRecordResponse result = deliveryRecordService.findById(11L);
+
+        assertSame(expected, result);
+    }
+
+    @Test
+    @DisplayName("查询不存在的投放记录返回明确错误")
+    void missingDeliveryRecordReturnsNotFound() {
+        when(deliveryRecordMapper.selectDetailById(404L)).thenReturn(null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.findById(404L));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("组合查询将类型编码解析为 ID 并返回物理分页结果")
+    void findAllResolvesTypeCodeAndReturnsPhysicalPage() {
+        LocalDate startDate = LocalDate.of(2026, 1, 1);
+        LocalDate endDate = LocalDate.of(2027, 1, 1);
+        when(advertisingTypeMapper.findByCodeIgnoreCase("search"))
+                .thenReturn(Optional.of(advertisingType(3L, AdvertisingTypeStatus.ACTIVE)));
+        Page<AdvertisingDeliveryRecordResponse> mapperPage = new Page<>(2, 1, 3);
+        mapperPage.setRecords(List.of(response(12L, "DELIVERY-002")));
+        when(deliveryRecordMapper.selectPageWithDetails(
+                any(), eq(startDate), eq(endDate), eq(7L), eq(3L)))
+                .thenReturn(mapperPage);
+
+        PageResponse<AdvertisingDeliveryRecordResponse> result = deliveryRecordService.findAll(
+                startDate, endDate, 7L, " search ", 2, 1);
+
+        assertAll(
+                () -> assertEquals(1, result.items().size()),
+                () -> assertEquals("DELIVERY-002", result.items().get(0).externalRecordNo()),
+                () -> assertEquals(2, result.page()),
+                () -> assertEquals(1, result.size()),
+                () -> assertEquals(3, result.total()),
+                () -> assertEquals(3, result.totalPages()));
+    }
+
+    @Test
+    @DisplayName("不存在的广告类型筛选条件直接返回空页")
+    void unknownTypeFilterReturnsEmptyPage() {
+        when(advertisingTypeMapper.findByCodeIgnoreCase("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        PageResponse<AdvertisingDeliveryRecordResponse> result = deliveryRecordService.findAll(
+                null, null, null, "UNKNOWN", 3, 20);
+
+        assertAll(
+                () -> assertEquals(List.of(), result.items()),
+                () -> assertEquals(3, result.page()),
+                () -> assertEquals(20, result.size()),
+                () -> assertEquals(0, result.total()),
+                () -> assertEquals(0, result.totalPages()));
+        verify(deliveryRecordMapper, never()).selectPageWithDetails(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("开始日期晚于结束日期时拒绝查询")
+    void reversedDateRangeIsRejected() {
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+                deliveryRecordService.findAll(
+                        LocalDate.of(2026, 8, 27), LocalDate.of(2026, 8, 26),
+                        null, null, 1, 20));
+
+        assertSame(DeliveryErrorCode.INVALID_DATE_RANGE, exception.errorCode());
+        verify(deliveryRecordMapper, never()).selectPageWithDetails(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("超过 366 天的日期范围被拒绝")
+    void dateRangeAboveLimitIsRejected() {
+        BusinessException exception = assertThrows(BusinessException.class, () ->
+                deliveryRecordService.findAll(
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 2),
+                        null, null, 1, 20));
+
+        assertSame(DeliveryErrorCode.DATE_RANGE_TOO_LARGE, exception.errorCode());
+        verify(deliveryRecordMapper, never()).selectPageWithDetails(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -239,5 +333,24 @@ class AdvertisingDeliveryRecordServiceTest {
         advertisingType.setCreatedAt(now);
         advertisingType.setUpdatedAt(now);
         return advertisingType;
+    }
+
+    private AdvertisingDeliveryRecordResponse response(Long id, String externalRecordNo) {
+        OffsetDateTime now = OffsetDateTime.now();
+        return new AdvertisingDeliveryRecordResponse(
+                id,
+                externalRecordNo,
+                7L,
+                "示例广告主",
+                3L,
+                "SEARCH",
+                "搜索广告",
+                LocalDate.of(2026, 8, 26),
+                10_000L,
+                500L,
+                30L,
+                new BigDecimal("300.00"),
+                now,
+                now);
     }
 }

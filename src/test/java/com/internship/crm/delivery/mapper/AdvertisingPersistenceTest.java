@@ -10,6 +10,7 @@ import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.service.AdvertiserService;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
@@ -22,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.flywaydb.core.Flyway;
@@ -176,6 +178,46 @@ class AdvertisingPersistenceTest {
     }
 
     @Test
+    @DisplayName("Service 使用 JOIN、组合筛选和稳定排序查询投放记录")
+    void serviceQueriesDeliveryDetailsAndFilteredPage() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse oldest = deliveryRecordService.create(
+                queryRecordRequest(advertiser.id(), "SEARCH", LocalDate.of(2026, 8, 20)));
+        AdvertisingDeliveryRecordResponse middle = deliveryRecordService.create(
+                queryRecordRequest(advertiser.id(), "DISPLAY", LocalDate.of(2026, 8, 21)));
+        AdvertisingDeliveryRecordResponse newest = deliveryRecordService.create(
+                queryRecordRequest(advertiser.id(), "SEARCH", LocalDate.of(2026, 8, 22)));
+
+        PageResponse<AdvertisingDeliveryRecordResponse> page = deliveryRecordService.findAll(
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 8, 31),
+                advertiser.id(),
+                null,
+                1,
+                2);
+        PageResponse<AdvertisingDeliveryRecordResponse> searchOnly = deliveryRecordService.findAll(
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 8, 31),
+                advertiser.id(),
+                "search",
+                1,
+                20);
+        AdvertisingDeliveryRecordResponse detail = deliveryRecordService.findById(middle.id());
+
+        assertAll(
+                () -> assertEquals(List.of(newest.id(), middle.id()),
+                        page.items().stream().map(AdvertisingDeliveryRecordResponse::id).toList()),
+                () -> assertEquals(3, page.total()),
+                () -> assertEquals(2, page.totalPages()),
+                () -> assertEquals(List.of(newest.id(), oldest.id()),
+                        searchOnly.items().stream()
+                                .map(AdvertisingDeliveryRecordResponse::id)
+                                .toList()),
+                () -> assertEquals("DISPLAY", detail.advertisingTypeCode()),
+                () -> assertEquals(advertiser.name(), detail.advertiserName()));
+    }
+
+    @Test
     @DisplayName("广告类型编码不区分大小写唯一")
     void advertisingTypeCodeIsUniqueIgnoringCase() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -285,5 +327,18 @@ class AdvertisingPersistenceTest {
         record.setCreatedAt(now);
         record.setUpdatedAt(now);
         return record;
+    }
+
+    private CreateAdvertisingDeliveryRecordRequest queryRecordRequest(
+            Long advertiserId, String advertisingTypeCode, LocalDate recordDate) {
+        return new CreateAdvertisingDeliveryRecordRequest(
+                "DELIVERY-QUERY-" + UUID.randomUUID(),
+                advertiserId,
+                advertisingTypeCode,
+                recordDate,
+                10_000L,
+                500L,
+                30L,
+                new BigDecimal("300.00"));
     }
 }

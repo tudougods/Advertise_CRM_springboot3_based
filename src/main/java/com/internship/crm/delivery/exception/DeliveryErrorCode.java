@@ -14,6 +14,12 @@ public enum DeliveryErrorCode implements ErrorCode {
             "DELIVERY_ADVERTISING_TYPE_DISABLED", "不能使用已禁用的广告类型", HttpStatus.BAD_REQUEST),
     EXTERNAL_RECORD_NO_ALREADY_EXISTS(
             "DELIVERY_EXTERNAL_RECORD_NO_ALREADY_EXISTS", "外部投放记录号已存在", HttpStatus.CONFLICT),
+    DELIVERY_RECORD_NOT_FOUND(
+            "DELIVERY_RECORD_NOT_FOUND", "投放记录不存在", HttpStatus.NOT_FOUND),
+    INVALID_DATE_RANGE(
+            "DELIVERY_INVALID_DATE_RANGE", "开始日期不能晚于结束日期", HttpStatus.BAD_REQUEST),
+    DATE_RANGE_TOO_LARGE(
+            "DELIVERY_DATE_RANGE_TOO_LARGE", "投放记录查询日期范围不能超过 366 天", HttpStatus.BAD_REQUEST),
     INVALID_METRICS(
             "DELIVERY_INVALID_METRICS", "投放指标或花费不符合漏斗规则", HttpStatus.BAD_REQUEST);
 

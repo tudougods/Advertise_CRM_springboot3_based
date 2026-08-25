@@ -1,9 +1,11 @@
 package com.internship.crm.delivery.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.advertiser.entity.Advertiser;
 import com.internship.crm.advertiser.entity.AdvertiserStatus;
 import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
@@ -14,7 +16,10 @@ import com.internship.crm.delivery.mapper.AdvertisingDeliveryRecordMapper;
 import com.internship.crm.delivery.mapper.AdvertisingTypeMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +66,39 @@ public class AdvertisingDeliveryRecordService {
         return AdvertisingDeliveryRecordResponse.from(record, advertiser, advertisingType);
     }
 
+    @Transactional(readOnly = true)
+    public AdvertisingDeliveryRecordResponse findById(Long id) {
+        AdvertisingDeliveryRecordResponse response = deliveryRecordMapper.selectDetailById(id);
+        if (response == null) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+        }
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AdvertisingDeliveryRecordResponse> findAll(
+            LocalDate startDate,
+            LocalDate endDate,
+            Long advertiserId,
+            String advertisingTypeCode,
+            long page,
+            long size) {
+        validateDateRange(startDate, endDate);
+        Long advertisingTypeId = resolveAdvertisingTypeId(advertisingTypeCode);
+        if (advertisingTypeCode != null && advertisingTypeId == null) {
+            return PageResponse.of(List.of(), page, size, 0);
+        }
+
+        Page<AdvertisingDeliveryRecordResponse> result = deliveryRecordMapper.selectPageWithDetails(
+                new Page<>(page, size),
+                startDate,
+                endDate,
+                advertiserId,
+                advertisingTypeId);
+        return PageResponse.of(
+                result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+    }
+
     private Advertiser requireActiveAdvertiser(Long advertiserId) {
         Advertiser advertiser = advertiserMapper.selectById(advertiserId);
         if (advertiser == null) {
@@ -79,6 +117,31 @@ public class AdvertisingDeliveryRecordService {
             throw new BusinessException(DeliveryErrorCode.ADVERTISING_TYPE_DISABLED);
         }
         return advertisingType;
+    }
+
+    private Long resolveAdvertisingTypeId(String code) {
+        if (code == null) {
+            return null;
+        }
+        String normalizedCode = code.trim();
+        if (normalizedCode.isEmpty()) {
+            return null;
+        }
+        return advertisingTypeMapper.findByCodeIgnoreCase(normalizedCode)
+                .map(AdvertisingType::getId)
+                .orElse(null);
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            return;
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new BusinessException(DeliveryErrorCode.INVALID_DATE_RANGE);
+        }
+        if (ChronoUnit.DAYS.between(startDate, endDate) > 365) {
+            throw new BusinessException(DeliveryErrorCode.DATE_RANGE_TOO_LARGE);
+        }
     }
 
     private void validateMetrics(CreateAdvertisingDeliveryRecordRequest request) {

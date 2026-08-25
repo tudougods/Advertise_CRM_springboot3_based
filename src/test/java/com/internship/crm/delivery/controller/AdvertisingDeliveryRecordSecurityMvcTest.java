@@ -1,11 +1,13 @@
 package com.internship.crm.delivery.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,6 +18,7 @@ import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.filter.RequestLoggingFilter;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
@@ -32,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Objects;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,7 +58,7 @@ import org.springframework.test.web.servlet.MockMvc;
         GlobalExceptionHandler.class,
         RequestLoggingFilter.class
 })
-@DisplayName("投放数据入库接口与 RBAC 权限")
+@DisplayName("广告投放记录接口与 RBAC 权限")
 @ExtendWith(ReadableTestResultExtension.class)
 class AdvertisingDeliveryRecordSecurityMvcTest {
 
@@ -181,6 +185,83 @@ class AdvertisingDeliveryRecordSecurityMvcTest {
                         .content(VALID_REQUEST))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("DELIVERY_INVALID_METRICS"));
+    }
+
+    @Test
+    @DisplayName("OPERATOR 可以组合筛选并分页查询投放记录")
+    void operatorCanFilterDeliveryRecords() throws Exception {
+        authorize("operator-list-delivery", user(2L, UserRole.OPERATOR));
+        when(deliveryRecordService.findAll(
+                LocalDate.of(2026, 8, 1),
+                LocalDate.of(2026, 8, 26),
+                7L,
+                "SEARCH",
+                2,
+                1)).thenReturn(PageResponse.of(List.of(response()), 2, 1, 3));
+
+        mockMvc.perform(get("/api/v1/delivery-records")
+                        .queryParam("startDate", "2026-08-01")
+                        .queryParam("endDate", "2026-08-26")
+                        .queryParam("advertiserId", "7")
+                        .queryParam("advertisingTypeCode", "SEARCH")
+                        .queryParam("page", "2")
+                        .queryParam("size", "1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-list-delivery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value(11))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(1))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(3));
+
+        verify(deliveryRecordService).findAll(
+                eq(LocalDate.of(2026, 8, 1)),
+                eq(LocalDate.of(2026, 8, 26)),
+                eq(7L),
+                eq("SEARCH"),
+                eq(2L),
+                eq(1L));
+    }
+
+    @Test
+    @DisplayName("ADMIN 可以查询投放记录详情")
+    void adminCanReadDeliveryRecordDetails() throws Exception {
+        authorize("admin-detail-delivery", user(1L, UserRole.ADMIN));
+        when(deliveryRecordService.findById(11L)).thenReturn(response());
+
+        mockMvc.perform(get("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-detail-delivery"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(11))
+                .andExpect(jsonPath("$.data.advertiserName").value("示例广告主"))
+                .andExpect(jsonPath("$.data.advertisingTypeName").value("搜索广告"));
+    }
+
+    @Test
+    @DisplayName("查询不存在的投放记录返回明确 404")
+    void missingDeliveryRecordReturnsNotFound() throws Exception {
+        authorize("operator-missing-delivery", user(2L, UserRole.OPERATOR));
+        when(deliveryRecordService.findById(404L))
+                .thenThrow(new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/delivery-records/404")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-missing-delivery"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RECORD_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("投放记录分页数量超过上限时返回统一 400")
+    void pageSizeAboveLimitIsRejected() throws Exception {
+        authorize("operator-invalid-delivery-page", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(get("/api/v1/delivery-records")
+                        .queryParam("size", "101")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-invalid-delivery-page"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(deliveryRecordService, never()).findAll(any(), any(), any(), any(), any(Long.class), any(Long.class));
     }
 
     private void authorize(String token, User user) {

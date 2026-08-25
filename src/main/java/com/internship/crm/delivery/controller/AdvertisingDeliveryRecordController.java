@@ -1,6 +1,7 @@
 package com.internship.crm.delivery.controller;
 
 import com.internship.crm.common.response.ApiResponse;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.service.AdvertisingDeliveryRecordService;
@@ -8,13 +9,23 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/delivery-records")
 @Tag(name = "广告投放数据", description = "录入和维护广告投放事实数据")
@@ -41,5 +52,45 @@ public class AdvertisingDeliveryRecordController {
             @Valid @RequestBody CreateAdvertisingDeliveryRecordRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(deliveryRecordService.create(request)));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "查询投放记录详情", description = "ADMIN 和 OPERATOR 均可查询")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或 JWT 无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "投放记录不存在")
+    })
+    public ApiResponse<AdvertisingDeliveryRecordResponse> findById(
+            @Positive @PathVariable Long id) {
+        return ApiResponse.success(deliveryRecordService.findById(id));
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "分页查询投放记录",
+            description = "支持日期、广告主和广告类型组合筛选；按投放日期和 ID 倒序返回")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "查询成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "分页或日期范围不合法"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或 JWT 无效")
+    })
+    public ApiResponse<PageResponse<AdvertisingDeliveryRecordResponse>> findAll(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate,
+            @Positive(message = "广告主 ID 必须为正数")
+            @RequestParam(required = false)
+            Long advertiserId,
+            @Size(max = 30, message = "广告类型编码不能超过 30 个字符")
+            @RequestParam(required = false)
+            String advertisingTypeCode,
+            @Positive @RequestParam(defaultValue = "1") int page,
+            @Positive @Max(100) @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(deliveryRecordService.findAll(
+                startDate, endDate, advertiserId, advertisingTypeCode, page, size));
     }
 }
