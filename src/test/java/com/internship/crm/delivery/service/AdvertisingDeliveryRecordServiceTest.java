@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -18,6 +19,7 @@ import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.response.PageResponse;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.request.UpdateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
 import com.internship.crm.delivery.entity.AdvertisingType;
@@ -203,6 +205,160 @@ class AdvertisingDeliveryRecordServiceTest {
     }
 
     @Test
+    @DisplayName("局部修正只更新提供字段并保持外部记录号不变")
+    void updateChangesOnlyProvidedFields() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        OffsetDateTime originalUpdatedAt = existing.getUpdatedAt();
+        AdvertisingDeliveryRecordResponse expected = response(11L, "DELIVERY-001");
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.updateById(existing)).thenReturn(1);
+        when(deliveryRecordMapper.selectDetailById(11L)).thenReturn(expected);
+
+        AdvertisingDeliveryRecordResponse result = deliveryRecordService.update(
+                11L,
+                new UpdateAdvertisingDeliveryRecordRequest(
+                        null, null, null, 20_000L, null, null, new BigDecimal("450")));
+
+        assertAll(
+                () -> assertSame(expected, result),
+                () -> assertEquals("DELIVERY-001", existing.getExternalRecordNo()),
+                () -> assertEquals(20_000L, existing.getImpressions()),
+                () -> assertEquals(500L, existing.getClicks()),
+                () -> assertEquals(30L, existing.getConversions()),
+                () -> assertEquals(new BigDecimal("450.00"), existing.getSpend()),
+                () -> assertTrue(existing.getUpdatedAt().isAfter(originalUpdatedAt)));
+        verify(deliveryRecordMapper).updateById(existing);
+    }
+
+    @Test
+    @DisplayName("修正广告主和广告类型时校验新关联并保存对应 ID")
+    void updateChangesValidatedRelations() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(advertiserMapper.selectById(8L))
+                .thenReturn(advertiser(8L, AdvertiserStatus.ACTIVE));
+        AdvertisingType video = advertisingType(4L, AdvertisingTypeStatus.ACTIVE);
+        video.setCode("VIDEO");
+        video.setName("视频广告");
+        when(advertisingTypeMapper.findByCodeIgnoreCase("video"))
+                .thenReturn(Optional.of(video));
+        when(deliveryRecordMapper.updateById(existing)).thenReturn(1);
+        when(deliveryRecordMapper.selectDetailById(11L))
+                .thenReturn(response(11L, "DELIVERY-001"));
+
+        deliveryRecordService.update(
+                11L,
+                new UpdateAdvertisingDeliveryRecordRequest(
+                        8L, " video ", LocalDate.of(2026, 8, 27), null, null, null, null));
+
+        assertAll(
+                () -> assertEquals(8L, existing.getAdvertiserId()),
+                () -> assertEquals(4L, existing.getAdvertisingTypeId()),
+                () -> assertEquals(LocalDate.of(2026, 8, 27), existing.getRecordDate()));
+    }
+
+    @Test
+    @DisplayName("空的局部修正请求被拒绝")
+    void emptyUpdateIsRejected() {
+        UpdateAdvertisingDeliveryRecordRequest empty =
+                new UpdateAdvertisingDeliveryRecordRequest(null, null, null, null, null, null, null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(11L, empty));
+
+        assertSame(DeliveryErrorCode.NO_FIELDS_TO_UPDATE, exception.errorCode());
+        verify(deliveryRecordMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("修正不存在的投放记录返回明确错误")
+    void updateMissingRecordReturnsNotFound() {
+        when(deliveryRecordMapper.selectById(404L)).thenReturn(null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        404L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                null, null, null, 100L, null, null, null)));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
+    @DisplayName("局部修正后形成非法漏斗关系时不写入数据库")
+    void updateRejectsInvalidMergedMetrics() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                null, null, null, 100L, null, null, null)));
+
+        assertSame(DeliveryErrorCode.INVALID_METRICS, exception.errorCode());
+        verify(deliveryRecordMapper, never()).updateById(any(AdvertisingDeliveryRecord.class));
+    }
+
+    @Test
+    @DisplayName("局部修正不能换绑到已禁用的广告主")
+    void updateRejectsDisabledAdvertiser() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(advertiserMapper.selectById(8L))
+                .thenReturn(advertiser(8L, AdvertiserStatus.DISABLED));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                8L, null, null, null, null, null, null)));
+
+        assertSame(DeliveryErrorCode.ADVERTISER_DISABLED, exception.errorCode());
+        verify(deliveryRecordMapper, never()).updateById(any(AdvertisingDeliveryRecord.class));
+    }
+
+    @Test
+    @DisplayName("局部修正不能换绑到已禁用的广告类型")
+    void updateRejectsDisabledAdvertisingType() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(advertisingTypeMapper.findByCodeIgnoreCase("VIDEO"))
+                .thenReturn(Optional.of(advertisingType(4L, AdvertisingTypeStatus.DISABLED)));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                null, "VIDEO", null, null, null, null, null)));
+
+        assertSame(DeliveryErrorCode.ADVERTISING_TYPE_DISABLED, exception.errorCode());
+        verify(deliveryRecordMapper, never()).updateById(any(AdvertisingDeliveryRecord.class));
+    }
+
+    @Test
+    @DisplayName("并发删除导致更新行数为零时返回记录不存在")
+    void updateReturningZeroRowsIsTreatedAsNotFound() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.updateById(existing)).thenReturn(0);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                null, null, LocalDate.of(2026, 8, 27), null, null, null, null)));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND, exception.errorCode());
+    }
+
+    @Test
     @DisplayName("不存在的广告主不能录入投放数据")
     void missingAdvertiserIsRejected() {
         when(advertiserMapper.selectById(7L)).thenReturn(null);
@@ -352,5 +508,22 @@ class AdvertisingDeliveryRecordServiceTest {
                 new BigDecimal("300.00"),
                 now,
                 now);
+    }
+
+    private AdvertisingDeliveryRecord deliveryRecord() {
+        OffsetDateTime now = OffsetDateTime.now().minusMinutes(1);
+        AdvertisingDeliveryRecord record = new AdvertisingDeliveryRecord();
+        record.setId(11L);
+        record.setExternalRecordNo("DELIVERY-001");
+        record.setAdvertiserId(7L);
+        record.setAdvertisingTypeId(3L);
+        record.setRecordDate(LocalDate.of(2026, 8, 26));
+        record.setImpressions(10_000L);
+        record.setClicks(500L);
+        record.setConversions(30L);
+        record.setSpend(new BigDecimal("300.00"));
+        record.setCreatedAt(now);
+        record.setUpdatedAt(now);
+        return record;
     }
 }

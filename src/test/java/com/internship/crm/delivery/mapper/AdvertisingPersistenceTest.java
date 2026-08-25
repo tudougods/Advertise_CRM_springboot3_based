@@ -12,6 +12,7 @@ import com.internship.crm.advertiser.service.AdvertiserService;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.request.UpdateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
 import com.internship.crm.delivery.entity.AdvertisingType;
@@ -215,6 +216,39 @@ class AdvertisingPersistenceTest {
                                 .toList()),
                 () -> assertEquals("DISPLAY", detail.advertisingTypeCode()),
                 () -> assertEquals(advertiser.name(), detail.advertiserName()));
+    }
+
+    @Test
+    @DisplayName("Service 局部修正持久化新关联和指标且保持外部记录号不变")
+    void servicePersistsPartialDeliveryRecordUpdate() {
+        AdvertiserResponse originalAdvertiser = createAdvertiser();
+        AdvertiserResponse replacementAdvertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(
+                        originalAdvertiser.id(), "SEARCH", LocalDate.of(2026, 8, 20)));
+
+        AdvertisingDeliveryRecordResponse updated = deliveryRecordService.update(
+                created.id(),
+                new UpdateAdvertisingDeliveryRecordRequest(
+                        replacementAdvertiser.id(),
+                        " video ",
+                        LocalDate.of(2026, 8, 21),
+                        20_000L,
+                        800L,
+                        40L,
+                        new BigDecimal("500")));
+        AdvertisingDeliveryRecord reloaded = deliveryRecordMapper.selectById(created.id());
+
+        assertAll(
+                () -> assertEquals(created.externalRecordNo(), updated.externalRecordNo()),
+                () -> assertEquals(replacementAdvertiser.id(), updated.advertiserId()),
+                () -> assertEquals(replacementAdvertiser.name(), updated.advertiserName()),
+                () -> assertEquals("VIDEO", updated.advertisingTypeCode()),
+                () -> assertEquals(LocalDate.of(2026, 8, 21), updated.recordDate()),
+                () -> assertEquals(20_000L, updated.impressions()),
+                () -> assertEquals(new BigDecimal("500.00"), updated.spend()),
+                () -> assertEquals(created.externalRecordNo(), reloaded.getExternalRecordNo()),
+                () -> assertEquals(updated.advertisingTypeId(), reloaded.getAdvertisingTypeId()));
     }
 
     @Test

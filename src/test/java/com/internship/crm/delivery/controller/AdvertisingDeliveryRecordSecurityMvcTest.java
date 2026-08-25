@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -21,6 +22,7 @@ import com.internship.crm.common.filter.RequestLoggingFilter;
 import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.request.UpdateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.exception.DeliveryErrorCode;
 import com.internship.crm.delivery.service.AdvertisingDeliveryRecordService;
@@ -262,6 +264,81 @@ class AdvertisingDeliveryRecordSecurityMvcTest {
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
 
         verify(deliveryRecordService, never()).findAll(any(), any(), any(), any(), any(Long.class), any(Long.class));
+    }
+
+    @Test
+    @DisplayName("ADMIN 可以局部修正投放记录")
+    void adminCanUpdateDeliveryRecord() throws Exception {
+        authorize("admin-update-delivery", user(1L, UserRole.ADMIN));
+        when(deliveryRecordService.update(eq(11L), any(UpdateAdvertisingDeliveryRecordRequest.class)))
+                .thenReturn(response());
+
+        mockMvc.perform(patch("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-update-delivery")
+                        .contentType(JSON)
+                        .content("""
+                                {
+                                  "advertisingTypeCode": "VIDEO",
+                                  "impressions": 20000,
+                                  "clicks": 800,
+                                  "conversions": 40,
+                                  "spend": 500.00
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(11));
+    }
+
+    @Test
+    @DisplayName("OPERATOR 不能修正投放记录")
+    void operatorCannotUpdateDeliveryRecord() throws Exception {
+        authorize("operator-update-delivery", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(patch("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-update-delivery")
+                        .contentType(JSON)
+                        .content("{\"spend\":500.00}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_ACCESS_DENIED"));
+
+        verify(deliveryRecordService, never()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("非法局部修正参数返回统一 400")
+    void invalidUpdateRequestReturnsValidationError() throws Exception {
+        authorize("admin-invalid-update-delivery", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(patch("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-update-delivery")
+                        .contentType(JSON)
+                        .content("""
+                                {
+                                  "advertiserId": 0,
+                                  "advertisingTypeCode": " ",
+                                  "impressions": -1,
+                                  "spend": -0.01
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(deliveryRecordService, never()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("空的局部修正请求返回明确 400")
+    void emptyUpdateRequestReturnsBadRequest() throws Exception {
+        authorize("admin-empty-update-delivery", user(1L, UserRole.ADMIN));
+        when(deliveryRecordService.update(eq(11L), any(UpdateAdvertisingDeliveryRecordRequest.class)))
+                .thenThrow(new BusinessException(DeliveryErrorCode.NO_FIELDS_TO_UPDATE));
+
+        mockMvc.perform(patch("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-empty-update-delivery")
+                        .contentType(JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DELIVERY_NO_FIELDS_TO_UPDATE"));
     }
 
     private void authorize(String token, User user) {

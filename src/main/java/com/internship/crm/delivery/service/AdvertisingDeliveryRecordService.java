@@ -7,6 +7,7 @@ import com.internship.crm.advertiser.mapper.AdvertiserMapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.request.UpdateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
 import com.internship.crm.delivery.entity.AdvertisingType;
@@ -20,6 +21,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,8 +43,8 @@ public class AdvertisingDeliveryRecordService {
 
     @Transactional
     public AdvertisingDeliveryRecordResponse create(CreateAdvertisingDeliveryRecordRequest request) {
-        BigDecimal normalizedSpend = validateAndNormalizeSpend(request);
-        validateMetrics(request);
+        BigDecimal normalizedSpend = validateAndNormalizeSpend(request.spend());
+        validateMetrics(request.impressions(), request.clicks(), request.conversions());
 
         Advertiser advertiser = requireActiveAdvertiser(request.advertiserId());
         AdvertisingType advertisingType = requireActiveAdvertisingType(request.advertisingTypeCode().trim());
@@ -64,6 +66,49 @@ public class AdvertisingDeliveryRecordService {
             throw new BusinessException(DeliveryErrorCode.EXTERNAL_RECORD_NO_ALREADY_EXISTS);
         }
         return AdvertisingDeliveryRecordResponse.from(record, advertiser, advertisingType);
+    }
+
+    @Transactional
+    public AdvertisingDeliveryRecordResponse update(
+            Long id, UpdateAdvertisingDeliveryRecordRequest request) {
+        ensureUpdateHasFields(request);
+        AdvertisingDeliveryRecord record = deliveryRecordMapper.selectById(id);
+        if (record == null) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+        }
+
+        if (request.advertiserId() != null
+                && !Objects.equals(record.getAdvertiserId(), request.advertiserId())) {
+            Advertiser advertiser = requireActiveAdvertiser(request.advertiserId());
+            record.setAdvertiserId(advertiser.getId());
+        }
+        if (request.advertisingTypeCode() != null) {
+            AdvertisingType advertisingType =
+                    requireActiveAdvertisingType(request.advertisingTypeCode().trim());
+            record.setAdvertisingTypeId(advertisingType.getId());
+        }
+        if (request.recordDate() != null) {
+            record.setRecordDate(request.recordDate());
+        }
+        if (request.impressions() != null) {
+            record.setImpressions(request.impressions());
+        }
+        if (request.clicks() != null) {
+            record.setClicks(request.clicks());
+        }
+        if (request.conversions() != null) {
+            record.setConversions(request.conversions());
+        }
+        if (request.spend() != null) {
+            record.setSpend(validateAndNormalizeSpend(request.spend()));
+        }
+
+        validateMetrics(record.getImpressions(), record.getClicks(), record.getConversions());
+        record.setUpdatedAt(OffsetDateTime.now());
+        if (deliveryRecordMapper.updateById(record) == 0) {
+            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+        }
+        return findById(id);
     }
 
     @Transactional(readOnly = true)
@@ -144,31 +189,43 @@ public class AdvertisingDeliveryRecordService {
         }
     }
 
-    private void validateMetrics(CreateAdvertisingDeliveryRecordRequest request) {
-        if (request.impressions() == null
-                || request.clicks() == null
-                || request.conversions() == null
-                || request.impressions() < 0
-                || request.clicks() < 0
-                || request.conversions() < 0
-                || request.clicks() > request.impressions()
-                || request.conversions() > request.clicks()) {
+    private void validateMetrics(Long impressions, Long clicks, Long conversions) {
+        if (impressions == null
+                || clicks == null
+                || conversions == null
+                || impressions < 0
+                || clicks < 0
+                || conversions < 0
+                || clicks > impressions
+                || conversions > clicks) {
             throw new BusinessException(DeliveryErrorCode.INVALID_METRICS);
         }
     }
 
-    private BigDecimal validateAndNormalizeSpend(CreateAdvertisingDeliveryRecordRequest request) {
-        if (request.spend() == null || request.spend().signum() < 0) {
+    private BigDecimal validateAndNormalizeSpend(BigDecimal spend) {
+        if (spend == null || spend.signum() < 0) {
             throw new BusinessException(DeliveryErrorCode.INVALID_METRICS);
         }
         try {
-            BigDecimal normalized = request.spend().setScale(2, RoundingMode.UNNECESSARY);
+            BigDecimal normalized = spend.setScale(2, RoundingMode.UNNECESSARY);
             if (normalized.precision() - normalized.scale() > 17) {
                 throw new BusinessException(DeliveryErrorCode.INVALID_METRICS);
             }
             return normalized;
         } catch (ArithmeticException exception) {
             throw new BusinessException(DeliveryErrorCode.INVALID_METRICS, exception);
+        }
+    }
+
+    private void ensureUpdateHasFields(UpdateAdvertisingDeliveryRecordRequest request) {
+        if (request.advertiserId() == null
+                && request.advertisingTypeCode() == null
+                && request.recordDate() == null
+                && request.impressions() == null
+                && request.clicks() == null
+                && request.conversions() == null
+                && request.spend() == null) {
+            throw new BusinessException(DeliveryErrorCode.NO_FIELDS_TO_UPDATE);
         }
     }
 }

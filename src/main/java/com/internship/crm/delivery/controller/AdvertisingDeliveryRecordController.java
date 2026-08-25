@@ -3,6 +3,7 @@ package com.internship.crm.delivery.controller;
 import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.request.UpdateAdvertisingDeliveryRecordRequest;
 import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.service.AdvertisingDeliveryRecordService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -92,5 +94,22 @@ public class AdvertisingDeliveryRecordController {
             @Positive @Max(100) @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.success(deliveryRecordService.findAll(
                 startDate, endDate, advertiserId, advertisingTypeCode, page, size));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(
+            summary = "修正投放记录",
+            description = "仅 ADMIN 可用；外部投放记录号不可修改，未提供的字段保持不变")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "修正成功"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "参数、关联状态或漏斗指标不合法"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "未登录或 JWT 无效"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "角色权限不足"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "投放记录或关联对象不存在")
+    })
+    public ApiResponse<AdvertisingDeliveryRecordResponse> update(
+            @Positive @PathVariable Long id,
+            @Valid @RequestBody UpdateAdvertisingDeliveryRecordRequest request) {
+        return ApiResponse.success(deliveryRecordService.update(id, request));
     }
 }
