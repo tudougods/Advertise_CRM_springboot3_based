@@ -1,6 +1,7 @@
 package com.internship.crm.advertiser.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
@@ -9,6 +10,7 @@ import com.internship.crm.advertiser.entity.AdvertiserStatus;
 import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -42,13 +44,15 @@ public class AdvertiserCategoryService {
 
     @Transactional(readOnly = true)
     @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
-    public List<AdvertiserCategoryResponse> findAll() {
+    public PageResponse<AdvertiserCategoryResponse> findAll(long page, long size) {
         LambdaQueryWrapper<AdvertiserCategory> query = new LambdaQueryWrapper<AdvertiserCategory>()
                 .orderByAsc(AdvertiserCategory::getSortOrder)
                 .orderByAsc(AdvertiserCategory::getId);
-        return categoryMapper.selectList(query).stream()
+        Page<AdvertiserCategory> result = categoryMapper.selectPage(new Page<>(page, size), query);
+        List<AdvertiserCategoryResponse> items = result.getRecords().stream()
                 .map(AdvertiserCategoryResponse::from)
                 .toList();
+        return PageResponse.of(items, result.getCurrent(), result.getSize(), result.getTotal());
     }
 
     @Transactional(readOnly = true)

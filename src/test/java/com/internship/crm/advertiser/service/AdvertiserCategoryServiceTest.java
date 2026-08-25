@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.internship.crm.advertiser.dto.response.AdvertiserCategoryResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
@@ -19,6 +20,7 @@ import com.internship.crm.advertiser.entity.AdvertiserStatus;
 import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.mapper.AdvertiserCategoryMapper;
 import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -86,15 +88,21 @@ class AdvertiserCategoryServiceTest {
     void listAndDetailReturnCategoryResponses() {
         AdvertiserCategory first = category(1L, "教育", AdvertiserStatus.ACTIVE, 1);
         AdvertiserCategory second = category(2L, "游戏", AdvertiserStatus.DISABLED, 2);
-        when(categoryMapper.selectList(any())).thenReturn(List.of(first, second));
+        Page<AdvertiserCategory> result = new Page<>(2, 2, 5);
+        result.setRecords(List.of(first, second));
+        when(categoryMapper.selectPage(any(), any())).thenReturn(result);
         when(categoryMapper.selectById(1L)).thenReturn(first);
 
-        List<AdvertiserCategoryResponse> list = categoryService.findAll();
+        PageResponse<AdvertiserCategoryResponse> list = categoryService.findAll(2, 2);
         AdvertiserCategoryResponse detail = categoryService.findById(1L);
 
         assertAll(
                 () -> assertEquals(List.of("教育", "游戏"),
-                        list.stream().map(response -> response.name()).toList()),
+                        list.items().stream().map(AdvertiserCategoryResponse::name).toList()),
+                () -> assertEquals(2, list.page()),
+                () -> assertEquals(2, list.size()),
+                () -> assertEquals(5, list.total()),
+                () -> assertEquals(3, list.totalPages()),
                 () -> assertEquals("教育", detail.name()));
     }
 

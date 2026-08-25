@@ -246,12 +246,35 @@ class AdvertiserSecurityMvcTest {
     @DisplayName("OPERATOR 可以查询广告主分类")
     void operatorCanListCategories() throws Exception {
         authorize("operator-categories", user(2L, UserRole.OPERATOR));
-        when(categoryService.findAll()).thenReturn(List.of(categoryResponse(20L, AdvertiserStatus.ACTIVE)));
+        when(categoryService.findAll(2, 1)).thenReturn(PageResponse.of(
+                List.of(categoryResponse(20L, AdvertiserStatus.ACTIVE)), 2, 1, 3));
 
         mockMvc.perform(get("/api/v1/advertiser-categories")
+                        .queryParam("page", "2")
+                        .queryParam("size", "1")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(20));
+                .andExpect(jsonPath("$.data.items[0].id").value(20))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(1))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(3));
+
+        verify(categoryService).findAll(eq(2L), eq(1L));
+    }
+
+    @Test
+    @DisplayName("分类列表每页数量超过上限时返回统一 400 且不查询数据库")
+    void categoryPageSizeAboveLimitIsRejected() throws Exception {
+        authorize("operator-invalid-category-page-size", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(get("/api/v1/advertiser-categories")
+                        .queryParam("size", "101")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-invalid-category-page-size"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(categoryService, never()).findAll(any(Long.class), any(Long.class));
     }
 
     @Test
