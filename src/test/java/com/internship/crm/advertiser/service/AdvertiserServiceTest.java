@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.internship.crm.account.service.AdvertiserAccountLifecycleService;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
@@ -51,11 +52,15 @@ class AdvertiserServiceTest {
     @Mock
     private UserMapper userMapper;
 
+    @Mock
+    private AdvertiserAccountLifecycleService accountLifecycleService;
+
     private AdvertiserService advertiserService;
 
     @BeforeEach
     void setUp() {
-        advertiserService = new AdvertiserService(advertiserMapper, categoryMapper, userMapper);
+        advertiserService = new AdvertiserService(
+                advertiserMapper, categoryMapper, userMapper, accountLifecycleService);
     }
 
     @Test
@@ -82,6 +87,7 @@ class AdvertiserServiceTest {
         ArgumentCaptor<Advertiser> captor = ArgumentCaptor.forClass(Advertiser.class);
         verify(advertiserMapper).insert(captor.capture());
         Advertiser inserted = captor.getValue();
+        verify(accountLifecycleService).createAccount(10L, inserted.getCreatedAt());
         assertAll(
                 () -> assertEquals("示例科技", inserted.getName()),
                 () -> assertEquals("REG-001", inserted.getRegistrationNo()),
@@ -254,6 +260,7 @@ class AdvertiserServiceTest {
 
         advertiserService.delete(9L);
 
+        verify(accountLifecycleService).ensureDeletableAndDeleteAccount(9L);
         verify(advertiserMapper).deleteById(9L);
     }
 
