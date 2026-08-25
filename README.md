@@ -82,7 +82,7 @@ SET role = 'ADMIN', status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
 WHERE LOWER(username) = LOWER('替换为你的用户名');
 ```
 
-重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；管理员通过 `PATCH /api/v1/users/{id}` 将注册账号从 `PENDING` 改为 `ACTIVE` 后，员工才能登录。合法的 `OPERATOR` Token 访问用户管理接口会返回 403；`PENDING` 或 `DISABLED` 账号不能登录，已有 Token 也不能继续访问受保护接口。
+重新登录后，把返回的 `accessToken` 填入 Swagger 的 **Authorize** 对话框。用户管理接口只允许 `ADMIN`；管理员通过 `PATCH /api/v1/users/{id}` 将注册账号从 `PENDING` 改为 `ACTIVE` 后，员工才能登录。合法的 `OPERATOR` Token 访问用户管理接口会返回 403；`PENDING` 或 `DISABLED` 账号不能登录，已有 Token 也不能继续访问受保护接口。系统至少保留一个 `ACTIVE ADMIN`；降级、禁用或删除最后一个可用管理员时返回 `409 USER_LAST_ACTIVE_ADMIN_REQUIRED`。
 
 公开认证接口使用单实例内存限流：同一“客户端 IP + 用户名”在 5 分钟内最多发起 5 次登录，同一客户端 IP 在 60 分钟内最多提交 3 次注册。超限返回 `429 Too Many Requests`、`AUTH_RATE_LIMITED` 和 `Retry-After`；成功登录会清除对应登录计数。阈值可通过 `AUTH_LOGIN_MAX_ATTEMPTS`、`AUTH_LOGIN_WINDOW_MINUTES`、`AUTH_REGISTRATION_MAX_ATTEMPTS` 和 `AUTH_REGISTRATION_WINDOW_MINUTES` 调整。当前直接使用连接地址识别客户端；部署到可信反向代理后，应先由基础设施正确处理转发地址再启用真实客户端 IP。
 

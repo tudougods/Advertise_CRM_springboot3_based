@@ -22,6 +22,7 @@ import com.internship.crm.auth.controller.AuthController;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.exception.RateLimitExceededException;
 import com.internship.crm.auth.exception.AuthErrorCode;
+import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.filter.RequestLoggingFilter;
 import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
@@ -32,6 +33,7 @@ import com.internship.crm.user.dto.response.UserResponse;
 import com.internship.crm.user.entity.User;
 import com.internship.crm.user.entity.UserRole;
 import com.internship.crm.user.entity.UserStatus;
+import com.internship.crm.user.exception.UserErrorCode;
 import com.internship.crm.user.service.UserService;
 import com.internship.crm.user.controller.UserController;
 import io.jsonwebtoken.Claims;
@@ -298,6 +300,22 @@ class UserSecurityMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.role").value("ADMIN"))
                 .andExpect(jsonPath("$.data.status").value("DISABLED"));
+    }
+
+    @Test
+    @DisplayName("禁用最后一个管理员返回明确的 409")
+    void disablingLastActiveAdminReturnsConflict() throws Exception {
+        authorize("sole-admin-update-token", user(1L, UserRole.ADMIN, UserStatus.ACTIVE));
+        when(userService.update(any(Long.class), any(UpdateUserRequest.class)))
+                .thenThrow(new BusinessException(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED));
+
+        mockMvc.perform(patch("/api/v1/users/1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer sole-admin-update-token")
+                        .contentType(JSON)
+                        .content("{\"status\":\"DISABLED\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("USER_LAST_ACTIVE_ADMIN_REQUIRED"))
+                .andExpect(jsonPath("$.message").value("系统必须至少保留一个启用的管理员"));
     }
 
     @Test

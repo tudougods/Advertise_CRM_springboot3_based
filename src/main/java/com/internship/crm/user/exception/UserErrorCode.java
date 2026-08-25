@@ -7,6 +7,10 @@ public enum UserErrorCode implements ErrorCode {
     USER_NOT_FOUND("USER_NOT_FOUND", "用户不存在", HttpStatus.NOT_FOUND),
     USERNAME_ALREADY_EXISTS("USER_USERNAME_ALREADY_EXISTS", "用户名已存在", HttpStatus.CONFLICT),
     EMAIL_ALREADY_EXISTS("USER_EMAIL_ALREADY_EXISTS", "邮箱已被使用", HttpStatus.CONFLICT),
+    LAST_ACTIVE_ADMIN_REQUIRED(
+            "USER_LAST_ACTIVE_ADMIN_REQUIRED",
+            "系统必须至少保留一个启用的管理员",
+            HttpStatus.CONFLICT),
     NO_FIELDS_TO_UPDATE("USER_NO_FIELDS_TO_UPDATE", "至少需要提供一个待修改字段", HttpStatus.BAD_REQUEST);
 
     private final String code;

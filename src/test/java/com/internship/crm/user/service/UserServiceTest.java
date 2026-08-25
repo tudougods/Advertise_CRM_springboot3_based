@@ -177,6 +177,51 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("最后一个启用管理员不能被降级")
+    void lastActiveAdminCannotBeDemoted() {
+        User soleAdmin = user(11L, "sole.admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        when(userMapper.selectActiveAdminIdsForUpdate()).thenReturn(List.of(11L));
+        when(userMapper.selectById(11L)).thenReturn(soleAdmin);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> userService.update(
+                11L,
+                new UpdateUserRequest(null, null, null, UserRole.OPERATOR, null)));
+
+        assertSame(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED, exception.errorCode());
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
+    @DisplayName("最后一个启用管理员不能被禁用")
+    void lastActiveAdminCannotBeDisabled() {
+        User soleAdmin = user(12L, "sole.admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        when(userMapper.selectActiveAdminIdsForUpdate()).thenReturn(List.of(12L));
+        when(userMapper.selectById(12L)).thenReturn(soleAdmin);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> userService.update(
+                12L,
+                new UpdateUserRequest(null, null, null, null, UserStatus.DISABLED)));
+
+        assertSame(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED, exception.errorCode());
+        verify(userMapper, never()).updateById(any(User.class));
+    }
+
+    @Test
+    @DisplayName("存在其他启用管理员时允许禁用当前管理员")
+    void adminCanBeDisabledWhenAnotherActiveAdminExists() {
+        User admin = user(13L, "first.admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        when(userMapper.selectActiveAdminIdsForUpdate()).thenReturn(List.of(13L, 14L));
+        when(userMapper.selectById(13L)).thenReturn(admin);
+
+        UserResponse response = userService.update(
+                13L,
+                new UpdateUserRequest(null, null, null, null, UserStatus.DISABLED));
+
+        assertEquals(UserStatus.DISABLED, response.status());
+        verify(userMapper).updateById(admin);
+    }
+
+    @Test
     @DisplayName("空的局部修改请求被拒绝")
     void emptyUpdateRequestIsRejected() {
         UpdateUserRequest emptyRequest = new UpdateUserRequest(null, null, null, null, null);
@@ -211,6 +256,33 @@ class UserServiceTest {
         userService.delete(9L);
 
         verify(userMapper).deleteById(9L);
+    }
+
+    @Test
+    @DisplayName("最后一个启用管理员不能被删除")
+    void lastActiveAdminCannotBeDeleted() {
+        User soleAdmin = user(15L, "sole.admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        when(userMapper.selectActiveAdminIdsForUpdate()).thenReturn(List.of(15L));
+        when(userMapper.selectById(15L)).thenReturn(soleAdmin);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> userService.delete(15L));
+
+        assertSame(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED, exception.errorCode());
+        verify(userMapper, never()).deleteById(15L);
+    }
+
+    @Test
+    @DisplayName("存在其他启用管理员时允许删除当前管理员")
+    void adminCanBeDeletedWhenAnotherActiveAdminExists() {
+        User admin = user(16L, "first.admin", UserRole.ADMIN, UserStatus.ACTIVE);
+        when(userMapper.selectActiveAdminIdsForUpdate()).thenReturn(List.of(16L, 17L));
+        when(userMapper.selectById(16L)).thenReturn(admin);
+
+        userService.delete(16L);
+
+        verify(userMapper).deleteById(16L);
     }
 
     @Test
