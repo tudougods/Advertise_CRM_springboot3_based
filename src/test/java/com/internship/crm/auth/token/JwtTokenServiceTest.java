@@ -53,8 +53,11 @@ class JwtTokenServiceTest {
                 60,
                 Clock.systemUTC());
         String token = tokenService.issueToken(user());
-        String tampered = token.substring(0, token.length() - 1)
-                + (token.endsWith("a") ? "b" : "a");
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char replacement = token.charAt(signatureStart) == 'a' ? 'b' : 'a';
+        String tampered = token.substring(0, signatureStart)
+                + replacement
+                + token.substring(signatureStart + 1);
 
         assertThrows(JwtException.class, () -> tokenService.parseClaims(tampered));
     }

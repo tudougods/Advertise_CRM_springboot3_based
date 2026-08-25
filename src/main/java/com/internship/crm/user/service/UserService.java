@@ -85,7 +85,11 @@ public class UserService {
     @Transactional
     public UserResponse update(Long id, UpdateUserRequest request) {
         ensureUpdateHasFields(request);
+        List<Long> activeAdminIds = requestCouldRemoveActiveAdmin(request)
+                ? userMapper.selectActiveAdminIdsForUpdate()
+                : List.of();
         User user = requireUser(id);
+        ensureActiveAdminRemains(user, request.role(), request.status(), activeAdminIds);
 
         if (request.displayName() != null) {
             user.setDisplayName(request.displayName().trim());
@@ -113,7 +117,11 @@ public class UserService {
 
     @Transactional
     public void delete(Long id) {
-        requireUser(id);
+        List<Long> activeAdminIds = userMapper.selectActiveAdminIdsForUpdate();
+        User user = requireUser(id);
+        if (isActiveAdmin(user) && activeAdminIds.size() <= 1) {
+            throw new BusinessException(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+        }
         userMapper.deleteById(id);
     }
 
@@ -145,6 +153,31 @@ public class UserService {
                 && request.status() == null) {
             throw new BusinessException(UserErrorCode.NO_FIELDS_TO_UPDATE);
         }
+    }
+
+    private boolean requestCouldRemoveActiveAdmin(UpdateUserRequest request) {
+        return (request.role() != null && request.role() != UserRole.ADMIN)
+                || (request.status() != null && request.status() != UserStatus.ACTIVE);
+    }
+
+    private void ensureActiveAdminRemains(
+            User user,
+            UserRole requestedRole,
+            UserStatus requestedStatus,
+            List<Long> activeAdminIds) {
+        if (!isActiveAdmin(user)) {
+            return;
+        }
+        UserRole resultingRole = requestedRole == null ? user.getRole() : requestedRole;
+        UserStatus resultingStatus = requestedStatus == null ? user.getStatus() : requestedStatus;
+        if ((resultingRole != UserRole.ADMIN || resultingStatus != UserStatus.ACTIVE)
+                && activeAdminIds.size() <= 1) {
+            throw new BusinessException(UserErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
+        }
+    }
+
+    private boolean isActiveAdmin(User user) {
+        return user.getRole() == UserRole.ADMIN && user.getStatus() == UserStatus.ACTIVE;
     }
 
     private String normalizeEmail(String email) {

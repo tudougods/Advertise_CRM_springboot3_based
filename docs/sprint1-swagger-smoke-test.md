@@ -223,6 +223,8 @@ WHERE LOWER(username) = LOWER('替换为本地开发管理员用户名');
 
 预期：HTTP 200，`data.displayName` 已更新，用户仍为 `ACTIVE`。
 
+不要在仅有一个 `ACTIVE ADMIN` 时将其降级、禁用或删除；此类请求预期返回 HTTP 409 和 `USER_LAST_ACTIVE_ADMIN_REQUIRED`。
+
 ### 6.4 ADMIN 创建和修改广告主分类
 
 执行 `POST /api/v1/advertiser-categories`：
