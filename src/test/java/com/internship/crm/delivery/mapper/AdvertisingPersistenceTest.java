@@ -164,6 +164,8 @@ class AdvertisingPersistenceTest {
     void deliveryHistoryRestrictsDeletingAdvertiser() {
         AdvertiserResponse advertiser = createAdvertiser();
         Long typeId = advertisingTypeMapper.findByCodeIgnoreCase("SOCIAL").orElseThrow().getId();
+        jdbcTemplate.update(
+                "DELETE FROM advertiser_accounts WHERE advertiser_id = ?", advertiser.id());
         deliveryRecordMapper.insert(validRecord(advertiser.id(), typeId));
 
         assertThrows(DataIntegrityViolationException.class,

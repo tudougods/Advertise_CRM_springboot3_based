@@ -18,4 +18,10 @@ public interface AdvertisingDeliveryRecordMapper extends BaseMapper<AdvertisingD
                         .last("LIMIT 1");
         return Optional.ofNullable(selectOne(query));
     }
+
+    @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
+    default boolean existsByAdvertiserId(Long advertiserId) {
+        return selectCount(new LambdaQueryWrapper<AdvertisingDeliveryRecord>()
+                .eq(AdvertisingDeliveryRecord::getAdvertiserId, advertiserId)) > 0;
+    }
 }

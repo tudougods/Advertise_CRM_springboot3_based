@@ -15,6 +15,8 @@ public enum AdvertiserErrorCode implements ErrorCode {
     CATEGORY_DISABLED("ADVERTISER_CATEGORY_DISABLED", "不能分配已禁用的广告主分类", HttpStatus.BAD_REQUEST),
     OWNER_NOT_FOUND("ADVERTISER_OWNER_NOT_FOUND", "广告主负责人不存在", HttpStatus.NOT_FOUND),
     OWNER_DISABLED("ADVERTISER_OWNER_DISABLED", "不能分配已禁用的广告主负责人", HttpStatus.BAD_REQUEST),
+    ADVERTISER_HAS_BUSINESS_DATA(
+            "ADVERTISER_HAS_BUSINESS_DATA", "广告主存在业务历史，不能删除", HttpStatus.CONFLICT),
     NO_FIELDS_TO_UPDATE(
             "ADVERTISER_NO_FIELDS_TO_UPDATE", "至少需要提供一个待修改字段", HttpStatus.BAD_REQUEST),
     CATEGORY_NO_FIELDS_TO_UPDATE(

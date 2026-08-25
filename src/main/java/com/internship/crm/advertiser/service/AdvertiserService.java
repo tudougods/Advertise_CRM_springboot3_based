@@ -2,6 +2,7 @@ package com.internship.crm.advertiser.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.internship.crm.account.service.AdvertiserAccountLifecycleService;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
@@ -28,14 +29,17 @@ public class AdvertiserService {
     private final AdvertiserMapper advertiserMapper;
     private final AdvertiserCategoryMapper categoryMapper;
     private final UserMapper userMapper;
+    private final AdvertiserAccountLifecycleService accountLifecycleService;
 
     public AdvertiserService(
             AdvertiserMapper advertiserMapper,
             AdvertiserCategoryMapper categoryMapper,
-            UserMapper userMapper) {
+            UserMapper userMapper,
+            AdvertiserAccountLifecycleService accountLifecycleService) {
         this.advertiserMapper = advertiserMapper;
         this.categoryMapper = categoryMapper;
         this.userMapper = userMapper;
+        this.accountLifecycleService = accountLifecycleService;
     }
 
     @Transactional
@@ -60,6 +64,7 @@ public class AdvertiserService {
         advertiser.setCreatedAt(now);
         advertiser.setUpdatedAt(now);
         advertiserMapper.insert(advertiser);
+        accountLifecycleService.createAccount(advertiser.getId(), now);
         return AdvertiserResponse.from(advertiser);
     }
 
@@ -141,6 +146,7 @@ public class AdvertiserService {
     @Transactional
     public void delete(Long id) {
         requireAdvertiser(id);
+        accountLifecycleService.ensureDeletableAndDeleteAccount(id);
         advertiserMapper.deleteById(id);
     }
 
