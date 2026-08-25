@@ -9,9 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.response.AdvertiserResponse;
 import com.internship.crm.advertiser.service.AdvertiserService;
+import com.internship.crm.common.exception.BusinessException;
+import com.internship.crm.delivery.dto.request.CreateAdvertisingDeliveryRecordRequest;
+import com.internship.crm.delivery.dto.response.AdvertisingDeliveryRecordResponse;
 import com.internship.crm.delivery.entity.AdvertisingDeliveryRecord;
 import com.internship.crm.delivery.entity.AdvertisingType;
 import com.internship.crm.delivery.entity.AdvertisingTypeStatus;
+import com.internship.crm.delivery.exception.DeliveryErrorCode;
+import com.internship.crm.delivery.service.AdvertisingDeliveryRecordService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -55,6 +60,9 @@ class AdvertisingPersistenceTest {
 
     @Autowired
     private AdvertisingDeliveryRecordMapper deliveryRecordMapper;
+
+    @Autowired
+    private AdvertisingDeliveryRecordService deliveryRecordService;
 
     @Test
     @DisplayName("V3 创建两张广告投放表并预置四种广告类型")
@@ -107,6 +115,64 @@ class AdvertisingPersistenceTest {
                 () -> assertTrue(deliveryRecordMapper
                         .findByExternalRecordNo(record.getExternalRecordNo())
                         .isPresent()));
+    }
+
+    @Test
+    @DisplayName("Service 使用类型编码原子录入并返回完整投放记录")
+    void serviceCreatesDeliveryRecordAtomically() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        String externalRecordNo = "DELIVERY-SERVICE-" + UUID.randomUUID();
+
+        AdvertisingDeliveryRecordResponse response = deliveryRecordService.create(
+                new CreateAdvertisingDeliveryRecordRequest(
+                        "  " + externalRecordNo + "  ",
+                        advertiser.id(),
+                        " search ",
+                        LocalDate.of(2026, 8, 26),
+                        2_000L,
+                        100L,
+                        8L,
+                        new BigDecimal("80")));
+
+        AdvertisingDeliveryRecord reloaded = deliveryRecordMapper.selectById(response.id());
+        assertAll(
+                () -> assertNotNull(response.id()),
+                () -> assertEquals(externalRecordNo, response.externalRecordNo()),
+                () -> assertEquals(advertiser.name(), response.advertiserName()),
+                () -> assertEquals("SEARCH", response.advertisingTypeCode()),
+                () -> assertEquals(new BigDecimal("80.00"), response.spend()),
+                () -> assertNotNull(reloaded),
+                () -> assertEquals(response.id(), reloaded.getId()));
+    }
+
+    @Test
+    @DisplayName("Service 通过原子插入拒绝重复外部投放记录号")
+    void serviceRejectsDuplicateExternalRecordNumber() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        String externalRecordNo = "DELIVERY-DUPLICATE-" + UUID.randomUUID();
+        CreateAdvertisingDeliveryRecordRequest request = new CreateAdvertisingDeliveryRecordRequest(
+                externalRecordNo,
+                advertiser.id(),
+                "DISPLAY",
+                LocalDate.of(2026, 8, 26),
+                2_000L,
+                100L,
+                8L,
+                new BigDecimal("80.00"));
+        deliveryRecordService.create(request);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.create(request));
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM advertising_delivery_records WHERE external_record_no = ?",
+                Long.class,
+                externalRecordNo);
+
+        assertAll(
+                () -> assertEquals(DeliveryErrorCode.EXTERNAL_RECORD_NO_ALREADY_EXISTS,
+                        exception.errorCode()),
+                () -> assertEquals(1L, count));
     }
 
     @Test
