@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.internship.crm.report.mapper.DeliveryReportMapper">
+
+    <sql id="deliveryReportFilters">
+        WHERE record.record_date BETWEEN #{criteria.startDate} AND #{criteria.endDate}
+        <if test="criteria.advertiserId != null">
+            AND record.advertiser_id = #{criteria.advertiserId}
+        </if>
+        <if test="criteria.advertisingTypeCode != null">
+            AND UPPER(advertising_type.code) = #{criteria.advertisingTypeCode}
+        </if>
+    </sql>
+
+    <select id="selectOverview"
+            resultType="com.internship.crm.report.dto.response.DeliveryMetricsResponse">
+        SELECT
+            COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+            COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+            COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+            ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+            COALESCE(
+                ROUND(SUM(record.clicks)::NUMERIC
+                    / NULLIF(SUM(record.impressions), 0), 4),
+                0.0000
+            ) AS ctr,
+            COALESCE(
+                ROUND(SUM(record.conversions)::NUMERIC
+                    / NULLIF(SUM(record.clicks), 0), 4),
+                0.0000
+            ) AS cvr,
+            COALESCE(
+                ROUND(SUM(record.spend)
+                    / NULLIF(SUM(record.clicks), 0), 2),
+                0.00
+            ) AS cpc
+        FROM advertising_delivery_records record
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        <include refid="deliveryReportFilters"/>
+    </select>
+
+    <select id="selectTrend"
+            resultType="com.internship.crm.report.model.DeliveryTrendRow">
+        SELECT
+            DATE_TRUNC(#{granularity}, record.record_date::TIMESTAMP)::DATE AS period_start,
+            COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+            COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+            COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+            ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+            COALESCE(
+                ROUND(SUM(record.clicks)::NUMERIC
+                    / NULLIF(SUM(record.impressions), 0), 4),
+                0.0000
+            ) AS ctr,
+            COALESCE(
+                ROUND(SUM(record.conversions)::NUMERIC
+                    / NULLIF(SUM(record.clicks), 0), 4),
+                0.0000
+            ) AS cvr,
+            COALESCE(
+                ROUND(SUM(record.spend)
+                    / NULLIF(SUM(record.clicks), 0), 2),
+                0.00
+            ) AS cpc
+        FROM advertising_delivery_records record
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        <include refid="deliveryReportFilters"/>
+        GROUP BY 1
+        ORDER BY 1
+    </select>
+
+    <select id="selectByAdvertiser"
+            resultType="com.internship.crm.report.model.AdvertiserReportRow">
+        SELECT
+            advertiser.id AS advertiser_id,
+            advertiser.name AS advertiser_name,
+            COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+            COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+            COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+            ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+            COALESCE(
+                ROUND(SUM(record.clicks)::NUMERIC
+                    / NULLIF(SUM(record.impressions), 0), 4), 0.0000
+            ) AS ctr,
+            COALESCE(
+                ROUND(SUM(record.conversions)::NUMERIC
+                    / NULLIF(SUM(record.clicks), 0), 4), 0.0000
+            ) AS cvr,
+            COALESCE(
+                ROUND(SUM(record.spend)
+                    / NULLIF(SUM(record.clicks), 0), 2), 0.00
+            ) AS cpc
+        FROM advertising_delivery_records record
+        JOIN advertisers advertiser ON advertiser.id = record.advertiser_id
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        <include refid="deliveryReportFilters"/>
+        GROUP BY advertiser.id, advertiser.name
+        ORDER BY
+        <choose>
+            <when test="sortField == 'IMPRESSIONS'">impressions</when>
+            <when test="sortField == 'CLICKS'">clicks</when>
+            <when test="sortField == 'CONVERSIONS'">conversions</when>
+            <when test="sortField == 'CTR'">ctr</when>
+            <when test="sortField == 'CVR'">cvr</when>
+            <when test="sortField == 'CPC'">cpc</when>
+            <otherwise>spend</otherwise>
+        </choose>
+        <choose>
+            <when test="sortDirection == 'ASC'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>,
+        advertiser.id ASC
+        LIMIT #{limit}
+        OFFSET #{offset}
+    </select>
+
+    <select id="countByAdvertiser" resultType="long">
+        SELECT COUNT(DISTINCT record.advertiser_id)
+        FROM advertising_delivery_records record
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        <include refid="deliveryReportFilters"/>
+    </select>
+
+    <select id="selectByAdvertisingType"
+            resultType="com.internship.crm.report.model.AdvertisingTypeReportRow">
+        SELECT
+            advertising_type.id AS advertising_type_id,
+            advertising_type.code AS advertising_type_code,
+            advertising_type.name AS advertising_type_name,
+            COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+            COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+            COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+            ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+            COALESCE(
+                ROUND(SUM(record.clicks)::NUMERIC
+                    / NULLIF(SUM(record.impressions), 0), 4), 0.0000
+            ) AS ctr,
+            COALESCE(
+                ROUND(SUM(record.conversions)::NUMERIC
+                    / NULLIF(SUM(record.clicks), 0), 4), 0.0000
+            ) AS cvr,
+            COALESCE(
+                ROUND(SUM(record.spend)
+                    / NULLIF(SUM(record.clicks), 0), 2), 0.00
+            ) AS cpc
+        FROM advertising_delivery_records record
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        <include refid="deliveryReportFilters"/>
+        GROUP BY advertising_type.id, advertising_type.code, advertising_type.name
+        ORDER BY spend DESC, advertising_type.code ASC
+    </select>
+</mapper>
