@@ -490,6 +490,31 @@ FOR UPDATE;
 
 脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
 
+### 11.2 板块 F 高频查询复验
+
+2026-08-27 使用 PostgreSQL 16 对最终业务访问路径和既定历史/审计访问模式重新执行 `EXPLAIN (ANALYZE, BUFFERS)`：
+
+- `scripts/sprint2-report-explain.sql` 在事务内生成 20 个广告主和 60000 条投放记录。
+- `scripts/sprint2-transaction-explain.sql` 在事务内生成 5000 个广告主账户，以及各 20000 条资金流水、充值订单和回调审计。
+- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。
+
+| 访问模式 | 实际索引 | 执行时间 |
+| --- | --- | ---: |
+| 投放明细：广告主 + 日期 + 类型分页 | `idx_advertising_delivery_advertiser_date` | 约 0.29 ms |
+| 报表总览：广告主 + 日期 + 类型 | `idx_advertising_delivery_advertiser_date` | 约 0.19 ms |
+| 报表日期趋势 | `idx_advertising_delivery_record_date` | 约 2.09 ms |
+| 报表广告主 COUNT / 分页 | `idx_advertising_delivery_type_date` | 约 0.39 / 0.73 ms |
+| 报表广告类型维度 | `idx_advertising_delivery_advertiser_date` | 约 0.32 ms |
+| 广告主账户查询 | `uk_advertiser_accounts_advertiser_id` | 约 0.07 ms |
+| 账户流水时间范围分页 | `idx_account_transactions_account_created` | 约 0.11 ms |
+| 资金业务号幂等查询 | `uk_account_transactions_business_no` | 约 0.06 ms |
+| 充值订单号查询并加行锁 | `uk_recharge_orders_order_no` | 约 0.09 ms |
+| 账户充值订单时间倒序查询（索引预留） | `idx_recharge_orders_account_created` | 约 0.06 ms |
+| 回调事件号幂等查询 | `uk_recharge_callbacks_provider_event_id` | 约 0.05 ms |
+| 订单回调审计时间倒序查询（索引预留） | `idx_recharge_callbacks_order_received` | 约 0.04 ms |
+
+所有实际高频访问路径及既定预留访问模式均使用现有索引；4 行广告类型字典采用顺序扫描属于合理的成本选择。未发现重复索引、无界查询或需要新增迁移的性能缺口，因此板块 F 不增加索引，也不修改业务代码。
+
 ## 12. 板块 A 验收结果
 
 验收日期：2026-08-26。

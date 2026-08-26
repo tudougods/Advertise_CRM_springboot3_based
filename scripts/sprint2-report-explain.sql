@@ -50,6 +50,24 @@ WHERE advertiser.name LIKE :'demo_prefix' || '-%';
 
 ANALYZE advertising_delivery_records;
 
+\echo '=== DELIVERY PAGE: advertiser + date + advertising type ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT record.id,
+       record.external_record_no,
+       record.record_date,
+       record.impressions,
+       record.clicks,
+       record.conversions,
+       record.spend
+FROM advertising_delivery_records record
+WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
+  AND record.advertiser_id = :target_advertiser_id
+  AND record.advertising_type_id = (
+      SELECT id FROM advertising_types WHERE code = 'SEARCH'
+  )
+ORDER BY record.record_date DESC, record.id DESC
+LIMIT 20;
+
 \echo '=== OVERVIEW: advertiser + date + advertising type ==='
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
 SELECT COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
