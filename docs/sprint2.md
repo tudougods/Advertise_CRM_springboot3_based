@@ -353,6 +353,8 @@ PENDING -> CLOSED
 
 ## 4.6 板块 F：性能、测试、文档与 Demo
 
+> 当前状态：F1～F3 已完成。最终查询计划复验、真实 HTTP 全流程 Demo、390 项全量回归和 Sprint 2 总验收均已通过，详见 `docs/sprint2-database-design.md`、`docs/sprint2-demo.md` 和 `docs/sprint2-test-report.md`。
+
 ### 索引计划
 
 先根据实际 SQL 编写索引，再使用执行计划验证，避免为了“有索引”而重复建索引。
