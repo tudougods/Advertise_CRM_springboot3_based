@@ -22,7 +22,19 @@ public enum AccountErrorCode implements ErrorCode {
     DELIVERY_RECORD_ADVERTISER_MISMATCH(
             "ACCOUNT_DELIVERY_RECORD_ADVERTISER_MISMATCH",
             "投放记录与账户不属于同一广告主",
-            HttpStatus.CONFLICT);
+            HttpStatus.CONFLICT),
+    INCOMPLETE_TRANSACTION_TIME_RANGE(
+            "ACCOUNT_INCOMPLETE_TRANSACTION_TIME_RANGE",
+            "流水开始时间和结束时间必须同时提供",
+            HttpStatus.BAD_REQUEST),
+    INVALID_TRANSACTION_TIME_RANGE(
+            "ACCOUNT_INVALID_TRANSACTION_TIME_RANGE",
+            "流水开始时间不能晚于结束时间",
+            HttpStatus.BAD_REQUEST),
+    TRANSACTION_TIME_RANGE_TOO_LARGE(
+            "ACCOUNT_TRANSACTION_TIME_RANGE_TOO_LARGE",
+            "流水查询时间范围不能超过 366 天",
+            HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
