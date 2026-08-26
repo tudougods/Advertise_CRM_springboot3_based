@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.internship.crm.payment.entity.RechargeOrder;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /** ORM data access entry point for advertiser recharge orders. */
 @Mapper
@@ -17,6 +19,14 @@ public interface RechargeOrderMapper extends BaseMapper<RechargeOrder> {
                 .last("LIMIT 1");
         return Optional.ofNullable(selectOne(query));
     }
+
+    @Select("""
+            SELECT *
+            FROM recharge_orders
+            WHERE order_no = #{orderNo}
+            FOR UPDATE
+            """)
+    RechargeOrder selectByOrderNoForUpdate(@Param("orderNo") String orderNo);
 
     @SuppressWarnings("null") // The ORM's serializable getter references lack nullability metadata.
     default boolean existsByAdvertiserAccountId(Long advertiserAccountId) {

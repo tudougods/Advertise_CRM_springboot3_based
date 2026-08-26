@@ -14,7 +14,19 @@ public enum PaymentErrorCode implements ErrorCode {
     INVALID_ORDER_NO(
             "PAYMENT_INVALID_ORDER_NO", "充值订单号不合法", HttpStatus.BAD_REQUEST),
     ORDER_NOT_FOUND(
-            "PAYMENT_ORDER_NOT_FOUND", "充值订单不存在", HttpStatus.NOT_FOUND);
+            "PAYMENT_ORDER_NOT_FOUND", "充值订单不存在", HttpStatus.NOT_FOUND),
+    INVALID_PROVIDER_TRANSACTION_NO(
+            "PAYMENT_INVALID_PROVIDER_TRANSACTION_NO",
+            "支付平台交易号不合法",
+            HttpStatus.BAD_REQUEST),
+    INVALID_STATUS_TRANSITION(
+            "PAYMENT_INVALID_STATUS_TRANSITION",
+            "充值订单当前状态不允许执行该操作",
+            HttpStatus.CONFLICT),
+    ORDER_UPDATE_CONFLICT(
+            "PAYMENT_ORDER_UPDATE_CONFLICT",
+            "充值订单状态更新冲突",
+            HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

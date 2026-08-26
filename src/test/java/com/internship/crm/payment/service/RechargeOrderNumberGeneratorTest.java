@@ -29,4 +29,15 @@ class RechargeOrderNumberGeneratorTest {
 
         assertEquals(100, orderNumbers.size());
     }
+
+    @Test
+    @DisplayName("mock 平台交易号使用独立固定前缀且满足数据库长度")
+    void generatesMockProviderTransactionNumbers() {
+        MockPaymentReferenceGenerator generator = new MockPaymentReferenceGenerator();
+
+        String reference = generator.nextProviderTransactionNo();
+
+        assertTrue(reference.matches("MOCK-TXN-[0-9A-F]{32}"));
+        assertTrue(reference.length() <= 100);
+    }
 }

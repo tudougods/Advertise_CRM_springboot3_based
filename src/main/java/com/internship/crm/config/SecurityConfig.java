@@ -73,6 +73,8 @@ public class SecurityConfig {
                     .hasAnyRole("ADMIN", "OPERATOR")
                 .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders")
                     .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders/*/simulate")
+                    .hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/payment-orders/**")
                     .hasAnyRole("ADMIN", "OPERATOR")
                 .anyRequest().authenticated())
