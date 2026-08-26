@@ -102,6 +102,8 @@ Sprint 完成时应满足：
 - `V3__create_advertising_tables.sql`
 - `V4__create_advertiser_account_tables.sql`
 - `V5__create_recharge_payment_tables.sql`
+- `V6__protect_delivery_account_consistency.sql`（板块 B review 后补充账户流水与投放记录的广告主一致性保护）
+- `V7__serialize_delivery_account_consistency.sql`（为流水关联与投放修正增加统一行锁顺序）
 - 后续如需补充约束或索引，继续创建新的迁移，不回改已执行迁移。
 
 ### 核心字段约定
@@ -140,6 +142,8 @@ Sprint 完成时应满足：
 
 ## 4.2 板块 B：广告投放数据模块 `delivery`
 
+> 当前状态：已完成。广告类型查询、投放数据录入、组合筛选分页、详情、修正、受保护删除、接口权限和三层测试均已落地，详见 `docs/sprint2-delivery-acceptance.md`。
+
 ### 目标
 
 完成投放数据的入库、详情和可筛选分页查询，为报表模块提供可信数据源。
@@ -161,8 +165,11 @@ Sprint 完成时应满足：
 - 广告主和广告类型必须存在且处于可用状态。
 - 同一 `externalRecordNo` 重复提交返回 409，不能重复入库。
 - `startDate` 不得晚于 `endDate`。
+- `startDate`、`endDate` 必须成对提供；均不提供时默认查询最近 30 天，最大跨度为 366 天。
+- 广告类型筛选编码不能为空白。
 - 展示、点击、转化、花费均不得为负，且维持漏斗关系。
 - 修改或删除投放数据只改变数据事实，不自动修改资金流水，避免历史数据修正造成隐式重复扣费。
+- 已关联资金流水的投放记录不能换绑广告主，数据库同时保证流水账户与投放记录属于同一广告主。
 - 若需要关联消费，使用独立消费接口的 `deliveryRecordId`/`businessNo` 显式关联。
 
 ### 代码结构
@@ -180,12 +187,12 @@ delivery/
 
 ### 任务
 
-- [ ] 实现实体、DTO、错误码和 Mapper。
-- [ ] 实现单条录入和外部记录号幂等校验。
-- [ ] 实现组合筛选、稳定排序和数据库物理分页。
-- [ ] 实现详情、修正和删除权限。
-- [ ] 补充 Service、MockMvc 和 PostgreSQL 持久化测试。
-- [ ] 补齐 OpenAPI 参数、成功响应和常见错误响应说明。
+- ✅ 实现实体、DTO、错误码和 Mapper。
+- ✅ 实现单条录入和外部记录号幂等校验。
+- ✅ 实现组合筛选、稳定排序和数据库物理分页。
+- ✅ 实现详情、修正和受保护删除权限。
+- ✅ 补充 Service、MockMvc 和 PostgreSQL 持久化测试。
+- ✅ 补齐 OpenAPI 参数、成功响应和常见错误响应说明。
 
 ### 完成标准
 
