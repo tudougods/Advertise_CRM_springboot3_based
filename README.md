@@ -123,6 +123,17 @@ docker compose down
 docker compose --profile full up --build
 ```
 
+## Sprint 2 投放统计报表
+
+当前已实现投放明细和四类统计报表：
+
+- `GET /api/v1/reports/delivery/overview`：指标总览。
+- `GET /api/v1/reports/delivery/trend`：日、周、月趋势。
+- `GET /api/v1/reports/delivery/by-advertiser`：广告主维度排序和分页。
+- `GET /api/v1/reports/delivery/by-ad-type`：广告类型维度汇总。
+
+`ADMIN`、`OPERATOR` 均可通过 Swagger 查询。指标口径、固定数据集结果和 `EXPLAIN ANALYZE` 证据见 [Sprint 2 报表验收记录](docs/sprint2-report-acceptance.md)。
+
 ## API 公共约定
 
 业务接口显式返回统一的 `ApiResponse<T>`，包含 `success`、`code`、`message`、`data`、`timestamp` 和 `requestId`。公共错误码统一使用 `COMMON_*` 前缀，后续业务模块使用各自模块前缀。
@@ -171,3 +182,6 @@ common/
 
 - [Sprint 1 开发流程](docs/spring1.md)
 - [Sprint 1 数据库设计](docs/database-design.md)
+- [Sprint 2 开发计划](docs/sprint2.md)
+- [Sprint 2 数据库设计](docs/sprint2-database-design.md)
+- [Sprint 2 报表验收记录](docs/sprint2-report-acceptance.md)

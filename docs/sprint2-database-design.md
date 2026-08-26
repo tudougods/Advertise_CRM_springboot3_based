@@ -371,26 +371,28 @@ payment/
 
 ```sql
 SELECT
-    record_date,
-    advertiser_id,
-    advertising_type_id,
-    SUM(impressions) AS impressions,
-    SUM(clicks) AS clicks,
-    SUM(conversions) AS conversions,
-    SUM(spend) AS spend,
-    COALESCE(
-        SUM(clicks)::NUMERIC / NULLIF(SUM(impressions), 0),
-        0
-    ) AS ctr
+    COALESCE(SUM(impressions), 0)::BIGINT AS impressions,
+    COALESCE(SUM(clicks), 0)::BIGINT AS clicks,
+    COALESCE(SUM(conversions), 0)::BIGINT AS conversions,
+    ROUND(COALESCE(SUM(spend), 0), 2) AS spend,
+    COALESCE(ROUND(
+        SUM(clicks)::NUMERIC / NULLIF(SUM(impressions), 0), 4
+    ), 0.0000) AS ctr,
+    COALESCE(ROUND(
+        SUM(conversions)::NUMERIC / NULLIF(SUM(clicks), 0), 4
+    ), 0.0000) AS cvr,
+    COALESCE(ROUND(
+        SUM(spend) / NULLIF(SUM(clicks), 0), 2
+    ), 0.00) AS cpc
 FROM advertising_delivery_records
 WHERE record_date BETWEEN :start_date AND :end_date
   AND (:advertiser_id IS NULL OR advertiser_id = :advertiser_id)
-  AND (:advertising_type_id IS NULL OR advertising_type_id = :advertising_type_id)
-GROUP BY record_date, advertiser_id, advertising_type_id
-ORDER BY record_date, advertiser_id, advertising_type_id;
+  AND (:advertising_type_id IS NULL OR advertising_type_id = :advertising_type_id);
 ```
 
-统计直接在 PostgreSQL 中聚合，避免把明细全部加载到 Java 内存。CTR 先汇总分子和分母，再通过 `NULLIF` 防止除零；不能平均每条记录的 CTR。
+统计直接在 PostgreSQL 中聚合，避免把明细全部加载到 Java 内存。CTR、CVR 和 CPC 先汇总分子和分母，再通过 `NULLIF` 防止除零；不能平均每条记录的比率。趋势查询在相同指标表达式之外使用 `DATE_TRUNC` 分组，广告主和广告类型报表分别按对应维度分组。
+
+上面的 `:parameter IS NULL OR ...` 用于简洁表达可选条件。实际 MyBatis XML 使用 `<if>` 只拼接非空参数对应的等值条件，不生成 `OR` 表达式，从而保留复合索引的有效过滤前缀。
 
 ### 10.2 原子消费扣款
 
@@ -446,6 +448,18 @@ FOR UPDATE;
 | 订单与流水一对一 | `uk_account_transactions_recharge_order_id` | 非空时唯一，防止充值重复入账 |
 
 索引是否被使用取决于数据量和过滤条件。小数据量下 PostgreSQL 选择顺序扫描是正常行为；板块 C 和 F 应在固定模拟数据集上记录 `EXPLAIN ANALYZE`，而不是以是否出现 `Index Scan` 作为唯一验收条件。
+
+### 11.1 板块 C 执行计划验证
+
+`scripts/sprint2-report-explain.sql` 在事务中生成 60000 条临时投放记录并在结束时回滚。2026-08-26 的 PostgreSQL 16 本机验证结果：
+
+| 访问模式 | 执行节点 | 实际索引 | 执行时间 |
+| --- | --- | --- | ---: |
+| 广告主 + 日期 + 类型 | `Bitmap Heap Scan` | `idx_advertising_delivery_advertiser_date` | 约 0.48 ms |
+| 日期范围趋势 | `Bitmap Heap Scan` + `HashAggregate` | `idx_advertising_delivery_record_date` | 约 1.58 ms |
+| 类型 + 日期分组 | `Bitmap Heap Scan` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.63 ms |
+
+现有三个投放查询索引都与实际接口过滤前缀匹配，当前没有新增 `V8` 索引迁移。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
 
 ## 12. 板块 A 验收结果
 
