@@ -17,6 +17,7 @@ import com.internship.crm.common.filter.RequestLoggingFilter;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.report.dto.request.DeliveryReportQuery;
 import com.internship.crm.report.dto.response.DeliveryMetricsResponse;
+import com.internship.crm.report.dto.response.DeliveryTrendPointResponse;
 import com.internship.crm.report.service.DeliveryReportService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.entity.User;
@@ -26,6 +27,8 @@ import com.internship.crm.user.service.UserService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,6 +122,35 @@ class DeliveryReportSecurityMvcTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
         verify(deliveryReportService, never()).overview(any());
+    }
+
+    @Test
+    @DisplayName("OPERATOR 可以按月查询投放趋势")
+    void operatorCanQueryMonthlyTrend() throws Exception {
+        authorize("operator-trend", user(2L, UserRole.OPERATOR));
+        when(deliveryReportService.trend(any(), any())).thenReturn(List.of(
+                new DeliveryTrendPointResponse(LocalDate.of(2026, 8, 1), metrics())));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/trend")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-trend")
+                        .param("granularity", "MONTH"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].periodStart").value("2026-08-01"))
+                .andExpect(jsonPath("$.data[0].metrics.impressions").value(1000))
+                .andExpect(jsonPath("$.data[0].metrics.ctr").value(0.1000));
+    }
+
+    @Test
+    @DisplayName("非法时间粒度返回统一参数错误且不进入 Service")
+    void invalidGranularityIsRejected() throws Exception {
+        authorize("admin-invalid-trend", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/trend")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-trend")
+                        .param("granularity", "YEAR"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+        verify(deliveryReportService, never()).trend(any(), any());
     }
 
     private DeliveryMetricsResponse metrics() {

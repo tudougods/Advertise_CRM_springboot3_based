@@ -37,4 +37,41 @@
             AND UPPER(advertising_type.code) = #{criteria.advertisingTypeCode}
         </if>
     </select>
+
+    <select id="selectTrend"
+            resultType="com.internship.crm.report.model.DeliveryTrendRow">
+        SELECT
+            DATE_TRUNC(#{granularity}, record.record_date::TIMESTAMP)::DATE AS period_start,
+            COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+            COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+            COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+            ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+            COALESCE(
+                ROUND(SUM(record.clicks)::NUMERIC
+                    / NULLIF(SUM(record.impressions), 0), 4),
+                0.0000
+            ) AS ctr,
+            COALESCE(
+                ROUND(SUM(record.conversions)::NUMERIC
+                    / NULLIF(SUM(record.clicks), 0), 4),
+                0.0000
+            ) AS cvr,
+            COALESCE(
+                ROUND(SUM(record.spend)
+                    / NULLIF(SUM(record.clicks), 0), 2),
+                0.00
+            ) AS cpc
+        FROM advertising_delivery_records record
+        JOIN advertising_types advertising_type
+          ON advertising_type.id = record.advertising_type_id
+        WHERE record.record_date BETWEEN #{criteria.startDate} AND #{criteria.endDate}
+        <if test="criteria.advertiserId != null">
+            AND record.advertiser_id = #{criteria.advertiserId}
+        </if>
+        <if test="criteria.advertisingTypeCode != null">
+            AND UPPER(advertising_type.code) = #{criteria.advertisingTypeCode}
+        </if>
+        GROUP BY 1
+        ORDER BY 1
+    </select>
 </mapper>
