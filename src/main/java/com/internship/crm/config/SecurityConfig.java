@@ -21,6 +21,7 @@ public class SecurityConfig {
         "/actuator/health/**",
         "/api/v1/auth/register",
         "/api/v1/auth/login",
+        "/api/v1/payment-callbacks/mock",
         "/v3/api-docs/**",
         "/swagger-ui.html",
         "/swagger-ui/**"
@@ -70,6 +71,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/delivery-records/**")
                     .hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/reports/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders/*/simulate")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/payment-orders/**")
                     .hasAnyRole("ADMIN", "OPERATOR")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

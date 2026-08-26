@@ -2,9 +2,9 @@
 
 > 状态：板块 A 已实现并完成验收（2026-08-26）
 >
-> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V9`
+> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V10`
 >
-> 本文记录 `V3`～`V9` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
+> 本文记录 `V3`～`V10` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
 
 ## 1. 设计目标
 
@@ -296,6 +296,7 @@ V6__protect_delivery_account_consistency.sql
 V7__serialize_delivery_account_consistency.sql
 V8__protect_recharge_account_consistency.sql
 V9__enforce_account_transaction_reference_types.sql
+V10__enforce_recharge_order_terminal_fields.sql
 ```
 
 ### `V3`
@@ -344,6 +345,12 @@ V9__enforce_account_transaction_reference_types.sql
 - `advertising_delivery_record_id` 非空时，流水类型必须为 `CONSUMPTION`。
 - `recharge_order_id` 非空时，流水类型必须为 `RECHARGE`。
 - 保留两类业务关联可选的既有设计，但拒绝来源与交易方向不一致的审计数据。
+
+### `V10`
+
+- 成功充值订单必须同时具有支付时间和支付平台交易号。
+- 非成功订单不得保留支付时间或支付平台交易号。
+- 通过新迁移补充板块 E 整体 review 发现的终态字段一致性缺口。
 
 每个迁移文件一经执行不得修改。后续修正通过新版本迁移完成。
 
@@ -502,11 +509,11 @@ FOR UPDATE;
 
 - `AdvertisingPersistenceTest`：12 项。
 - `AdvertiserAccountPersistenceTest`：16 项。
-- `RechargePaymentPersistenceTest`：21 项。
+- `RechargePaymentPersistenceTest`：23 项。
 
 验收使用的临时数据库在测试完成后已删除；现有开发数据库和业务数据未被清理或重建。
 
-板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`；A～D 整体 review 后新增 `V9`。现有开发数据库已从 `V8` 无损升级到 `V9`，并通过同广告主投放关联、结算后禁止换绑、统一行锁、充值订单/流水同账户以及交易类型/业务来源一致性约束的 PostgreSQL 持久化测试。
+板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`；A～D 整体 review 后新增 `V9`；板块 E 整体 review 后新增 `V10`。现有开发数据库已从 `V9` 无损升级到 `V10`，并通过同广告主投放关联、统一行锁、充值订单/流水同账户、交易类型/业务来源一致性以及充值终态字段一致性测试。
 
 ## 13. 当前边界与后续使用
 

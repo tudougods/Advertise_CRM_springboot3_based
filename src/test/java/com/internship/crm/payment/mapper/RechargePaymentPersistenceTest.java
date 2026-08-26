@@ -310,8 +310,12 @@ class RechargePaymentPersistenceTest {
                         "订单状态必须在白名单中"),
                 Arguments.of("SUCCESS-WITHOUT-PAID-AT", new BigDecimal("1.00"), "SUCCESS", null, null,
                         "成功订单必须有支付时间"),
+                Arguments.of("SUCCESS-WITHOUT-PROVIDER-NO", new BigDecimal("1.00"), "SUCCESS", null, now,
+                        "成功订单必须有支付平台交易号"),
                 Arguments.of("PENDING-WITH-PAID-AT", new BigDecimal("1.00"), "PENDING", null, now,
                         "未成功订单不能有支付时间"),
+                Arguments.of("FAILED-WITH-PROVIDER-NO", new BigDecimal("1.00"), "FAILED", "txn-1", null,
+                        "非成功订单不能有支付平台交易号"),
                 Arguments.of("BLANK-PROVIDER-NO", new BigDecimal("1.00"), "PENDING", " ", null,
                         "支付平台交易号不能是空白"));
     }
