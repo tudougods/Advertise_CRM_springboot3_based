@@ -185,3 +185,5 @@ common/
 - [Sprint 2 开发计划](docs/sprint2.md)
 - [Sprint 2 数据库设计](docs/sprint2-database-design.md)
 - [Sprint 2 报表验收记录](docs/sprint2-report-acceptance.md)
+- [Sprint 2 完整 Demo 验收记录](docs/sprint2-demo.md)
+- [Sprint 2 最终测试报告](docs/sprint2-test-report.md)

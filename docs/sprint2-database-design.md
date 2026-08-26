@@ -1,6 +1,6 @@
 # Advertiser CRM Sprint 2 数据库设计
 
-> 状态：板块 A 已实现并完成验收（2026-08-26）
+> 状态：Sprint 2 板块 A～F 已实现并完成验收（2026-08-27）
 >
 > 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V10`
 >
@@ -490,6 +490,31 @@ FOR UPDATE;
 
 脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
 
+### 11.2 板块 F 高频查询复验
+
+2026-08-27 使用 PostgreSQL 16 对最终业务访问路径和既定历史/审计访问模式重新执行 `EXPLAIN (ANALYZE, BUFFERS)`：
+
+- `scripts/sprint2-report-explain.sql` 在事务内生成 20 个广告主和 60000 条投放记录。
+- `scripts/sprint2-transaction-explain.sql` 在事务内生成 5000 个广告主账户，以及各 20000 条资金流水、充值订单和回调审计。
+- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。
+
+| 访问模式 | 实际索引 | 执行时间 |
+| --- | --- | ---: |
+| 投放明细：广告主 + 日期 + 类型分页 | `idx_advertising_delivery_advertiser_date` | 约 0.29 ms |
+| 报表总览：广告主 + 日期 + 类型 | `idx_advertising_delivery_advertiser_date` | 约 0.19 ms |
+| 报表日期趋势 | `idx_advertising_delivery_record_date` | 约 2.09 ms |
+| 报表广告主 COUNT / 分页 | `idx_advertising_delivery_type_date` | 约 0.39 / 0.73 ms |
+| 报表广告类型维度 | `idx_advertising_delivery_advertiser_date` | 约 0.32 ms |
+| 广告主账户查询 | `uk_advertiser_accounts_advertiser_id` | 约 0.07 ms |
+| 账户流水时间范围分页 | `idx_account_transactions_account_created` | 约 0.11 ms |
+| 资金业务号幂等查询 | `uk_account_transactions_business_no` | 约 0.06 ms |
+| 充值订单号查询并加行锁 | `uk_recharge_orders_order_no` | 约 0.09 ms |
+| 账户充值订单时间倒序查询（索引预留） | `idx_recharge_orders_account_created` | 约 0.06 ms |
+| 回调事件号幂等查询 | `uk_recharge_callbacks_provider_event_id` | 约 0.05 ms |
+| 订单回调审计时间倒序查询（索引预留） | `idx_recharge_callbacks_order_received` | 约 0.04 ms |
+
+所有实际高频访问路径及既定预留访问模式均使用现有索引；4 行广告类型字典采用顺序扫描属于合理的成本选择。未发现重复索引、无界查询或需要新增迁移的性能缺口，因此板块 F 不增加索引，也不修改业务代码。
+
 ## 12. 板块 A 验收结果
 
 验收日期：2026-08-26。
@@ -503,9 +528,9 @@ FOR UPDATE;
 | 账户初始化 | 通过 | V4 为已有广告主补建账户，新建广告主在同一事务中创建零余额账户 |
 | 历史数据删除保护 | 通过 | 投放记录、资金流水或充值订单存在时阻止物理删除广告主 |
 | Java 持久化映射 | 通过 | 投放、账户、流水、订单和回调均完成 Mapper 读写测试 |
-| 回归测试 | 通过 | A～D review 修复后运行完整测试：318 项通过，0 失败，0 错误，0 跳过 |
+| 回归测试 | 通过 | Sprint 2 最终完整回归：390 项通过，0 失败，0 错误，0 跳过 |
 
-其中板块 A 的 PostgreSQL 持久化测试现共 49 项：
+其中板块 A 的 PostgreSQL 持久化测试现共 51 项：
 
 - `AdvertisingPersistenceTest`：12 项。
 - `AdvertiserAccountPersistenceTest`：16 项。
@@ -515,12 +540,12 @@ FOR UPDATE;
 
 板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`；A～D 整体 review 后新增 `V9`；板块 E 整体 review 后新增 `V10`。现有开发数据库已从 `V9` 无损升级到 `V10`，并通过同广告主投放关联、统一行锁、充值订单/流水同账户、交易类型/业务来源一致性以及充值终态字段一致性测试。
 
-## 13. 当前边界与后续使用
+## 13. 模块复用结果
 
-板块 A 已完成数据库和持久层基础，以及广告主账户创建和删除保护所需的生命周期协作；不包含投放、账户交易或支付接口的 Controller 和完整业务流程。后续模块按以下方式复用：
+板块 A 完成了数据库和持久层基础，以及广告主账户创建和删除保护所需的生命周期协作；板块 B～F 已按以下方式完成复用和验收：
 
 - 板块 B 使用 `advertising_types` 和 `advertising_delivery_records` 实现投放录入与组合查询。
 - 板块 C 基于投放事实表和既有复合索引实现多维统计及报表。
-- 板块 D 使用账户表和不可变流水实现余额查询、充值及原子消费。
+- 板块 D 使用账户表和不可变流水实现余额查询及原子消费，板块 E 负责充值入账。
 - 板块 E 使用充值订单、回调审计和三层唯一键实现模拟支付与幂等入账。
 - 板块 F 使用固定数据集和 `EXPLAIN ANALYZE` 验证高频查询的索引效果。
