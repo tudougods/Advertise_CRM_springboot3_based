@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Authenticates and records mock-provider callbacks for later atomic processing. */
+/** Authenticates and atomically processes mock-provider callbacks. */
 @Service
 public class MockPaymentCallbackService {
 
@@ -38,6 +38,7 @@ public class MockPaymentCallbackService {
     private final RechargeOrderMapper orderMapper;
     private final AdvertiserAccountMapper accountMapper;
     private final RechargePaymentCallbackAuditService auditService;
+    private final RechargePaymentProcessor paymentProcessor;
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final Clock clock;
@@ -48,6 +49,7 @@ public class MockPaymentCallbackService {
             RechargeOrderMapper orderMapper,
             AdvertiserAccountMapper accountMapper,
             RechargePaymentCallbackAuditService auditService,
+            RechargePaymentProcessor paymentProcessor,
             ObjectMapper objectMapper,
             Validator validator,
             Clock clock) {
@@ -56,6 +58,7 @@ public class MockPaymentCallbackService {
         this.orderMapper = orderMapper;
         this.accountMapper = accountMapper;
         this.auditService = auditService;
+        this.paymentProcessor = paymentProcessor;
         this.objectMapper = objectMapper;
         this.validator = validator;
         this.clock = clock;
@@ -86,6 +89,17 @@ public class MockPaymentCallbackService {
 
         validateTrustedBusinessFields(request, order, account, payloadHash);
 
+        RechargeOrder lockedOrder = orderMapper.selectByOrderNoForUpdate(request.orderNo());
+        if (lockedOrder == null) {
+            throw new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND);
+        }
+        if (!lockedOrder.getId().equals(order.getId())
+                || !lockedOrder.getAdvertiserAccountId().equals(order.getAdvertiserAccountId())
+                || lockedOrder.getAmount().compareTo(order.getAmount()) != 0) {
+            throw new BusinessException(PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT);
+        }
+        order = lockedOrder;
+
         OffsetDateTime receivedAt = OffsetDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         RechargePaymentCallback callback = receivedCallback(request, order, payloadHash, receivedAt);
         if (callbackMapper.insertIfProviderEventIdAbsent(callback) == 0) {
@@ -95,8 +109,19 @@ public class MockPaymentCallbackService {
             return duplicateOrThrow(concurrent, request, payloadHash);
         }
 
+        paymentProcessor.process(
+                order,
+                request.outcome(),
+                request.providerTransactionNo(),
+                receivedAt);
+        callback.setCallbackStatus(PaymentCallbackStatus.PROCESSED);
+        callback.setProcessedAt(receivedAt);
+        if (callbackMapper.updateById(callback) != 1) {
+            throw new BusinessException(PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT);
+        }
+
         log.info(
-                "Trusted payment callback received: eventId={} orderNo={} outcome={}",
+                "Trusted payment callback processed: eventId={} orderNo={} outcome={}",
                 request.eventId(),
                 request.orderNo(),
                 request.outcome());

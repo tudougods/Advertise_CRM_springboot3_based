@@ -44,7 +44,9 @@ public enum PaymentErrorCode implements ErrorCode {
     CALLBACK_ADVERTISER_MISMATCH(
             "PAYMENT_CALLBACK_ADVERTISER_MISMATCH", "支付回调广告主与订单不匹配", HttpStatus.CONFLICT),
     CALLBACK_AMOUNT_MISMATCH(
-            "PAYMENT_CALLBACK_AMOUNT_MISMATCH", "支付回调金额与订单不匹配", HttpStatus.CONFLICT);
+            "PAYMENT_CALLBACK_AMOUNT_MISMATCH", "支付回调金额与订单不匹配", HttpStatus.CONFLICT),
+    RECHARGE_PROCESSING_CONFLICT(
+            "PAYMENT_RECHARGE_PROCESSING_CONFLICT", "充值订单处理冲突", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

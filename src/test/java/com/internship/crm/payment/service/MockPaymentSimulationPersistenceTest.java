@@ -60,6 +60,12 @@ class MockPaymentSimulationPersistenceTest {
     void cleanUp() {
         for (Long advertiserId : createdAdvertiserIds.reversed()) {
             jdbcTemplate.update("""
+                    DELETE FROM advertiser_account_transactions
+                    WHERE advertiser_account_id IN (
+                        SELECT id FROM advertiser_accounts WHERE advertiser_id = ?
+                    )
+                    """, advertiserId);
+            jdbcTemplate.update("""
                     DELETE FROM recharge_orders
                     WHERE advertiser_account_id IN (
                         SELECT id FROM advertiser_accounts WHERE advertiser_id = ?
@@ -73,8 +79,8 @@ class MockPaymentSimulationPersistenceTest {
     }
 
     @Test
-    @DisplayName("成功模拟只更新订单状态且不会提前充值")
-    void successfulSimulationUpdatesOnlyOrderState() {
+    @DisplayName("成功模拟在同一事务更新订单、余额和唯一充值流水")
+    void successfulSimulationAtomicallyCreditsAccount() {
         AdvertiserResponse advertiser = createAdvertiser();
         RechargeOrderResponse order = createOrder(advertiser.id());
 
@@ -86,8 +92,8 @@ class MockPaymentSimulationPersistenceTest {
                 () -> assertEquals(RechargeOrderStatus.SUCCESS, result.status()),
                 () -> assertNotNull(result.providerTransactionNo()),
                 () -> assertNotNull(result.paidAt()),
-                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
-                () -> assertEquals(0L, transactionCount(advertiser.id())));
+                () -> assertEquals(new BigDecimal("250.00"), balance(advertiser.id())),
+                () -> assertEquals(1L, transactionCount(advertiser.id())));
     }
 
     @Test
@@ -121,8 +127,14 @@ class MockPaymentSimulationPersistenceTest {
                     () -> assertTrue(
                             persisted.status() == RechargeOrderStatus.SUCCESS
                                     || persisted.status() == RechargeOrderStatus.FAILED),
-                    () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
-                    () -> assertEquals(0L, transactionCount(advertiser.id())));
+                    () -> assertEquals(
+                            persisted.status() == RechargeOrderStatus.SUCCESS
+                                    ? new BigDecimal("250.00")
+                                    : new BigDecimal("0.00"),
+                            balance(advertiser.id())),
+                    () -> assertEquals(
+                            persisted.status() == RechargeOrderStatus.SUCCESS ? 1L : 0L,
+                            transactionCount(advertiser.id())));
         } finally {
             executor.shutdownNow();
         }

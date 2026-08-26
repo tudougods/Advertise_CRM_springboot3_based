@@ -6,13 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.internship.crm.account.entity.AdvertiserAccount;
-import com.internship.crm.account.mapper.AdvertiserAccountMapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.payment.dto.request.SimulateRechargePaymentRequest;
 import com.internship.crm.payment.dto.response.RechargeOrderResponse;
@@ -46,7 +44,7 @@ class MockPaymentSimulationServiceTest {
     private RechargeOrderMapper rechargeOrderMapper;
 
     @Mock
-    private AdvertiserAccountMapper accountMapper;
+    private RechargePaymentProcessor paymentProcessor;
 
     @Mock
     private MockPaymentReferenceGenerator referenceGenerator;
@@ -57,8 +55,7 @@ class MockPaymentSimulationServiceTest {
     void setUp() {
         simulationService = new MockPaymentSimulationService(
                 rechargeOrderMapper,
-                accountMapper,
-                new RechargeOrderStateMachine(),
+                paymentProcessor,
                 referenceGenerator,
                 Clock.fixed(Instant.parse("2026-08-27T00:00:00Z"), ZoneOffset.UTC));
     }
@@ -70,8 +67,7 @@ class MockPaymentSimulationServiceTest {
         when(rechargeOrderMapper.selectByOrderNoForUpdate(ORDER_NO)).thenReturn(order);
         when(referenceGenerator.nextProviderTransactionNo())
                 .thenReturn(PROVIDER_TRANSACTION_NO);
-        when(accountMapper.selectById(8L)).thenReturn(account());
-        when(rechargeOrderMapper.updateById(order)).thenReturn(1);
+        stubProcessing(order, MockPaymentOutcome.SUCCESS, PROVIDER_TRANSACTION_NO);
 
         RechargeOrderResponse response = simulationService.simulate(
                 "  " + ORDER_NO + "  ",
@@ -84,7 +80,11 @@ class MockPaymentSimulationServiceTest {
                         OffsetDateTime.parse("2026-08-27T00:00:00Z"),
                         response.paidAt()),
                 () -> assertEquals(7L, response.advertiserId()));
-        verify(rechargeOrderMapper).updateById(order);
+        verify(paymentProcessor).process(
+                eq(order),
+                eq(MockPaymentOutcome.SUCCESS),
+                eq(PROVIDER_TRANSACTION_NO),
+                any(OffsetDateTime.class));
     }
 
     @Test
@@ -92,8 +92,7 @@ class MockPaymentSimulationServiceTest {
     void failedSimulationDoesNotGenerateProviderReference() {
         RechargeOrder order = pendingOrder();
         when(rechargeOrderMapper.selectByOrderNoForUpdate(ORDER_NO)).thenReturn(order);
-        when(accountMapper.selectById(8L)).thenReturn(account());
-        when(rechargeOrderMapper.updateById(order)).thenReturn(1);
+        stubProcessing(order, MockPaymentOutcome.FAILED, null);
 
         RechargeOrderResponse response = simulationService.simulate(
                 ORDER_NO,
@@ -104,7 +103,11 @@ class MockPaymentSimulationServiceTest {
                 () -> assertNull(response.providerTransactionNo()),
                 () -> assertNull(response.paidAt()));
         verifyNoInteractions(referenceGenerator);
-        verify(rechargeOrderMapper).updateById(order);
+        verify(paymentProcessor).process(
+                eq(order),
+                eq(MockPaymentOutcome.FAILED),
+                eq(null),
+                any(OffsetDateTime.class));
     }
 
     @Test
@@ -119,8 +122,7 @@ class MockPaymentSimulationServiceTest {
                         request(MockPaymentOutcome.SUCCESS)));
 
         assertSame(PaymentErrorCode.ORDER_NOT_FOUND, exception.errorCode());
-        verifyNoInteractions(referenceGenerator, accountMapper);
-        verify(rechargeOrderMapper, never()).updateById(any(RechargeOrder.class));
+        verifyNoInteractions(referenceGenerator, paymentProcessor);
     }
 
     @Test
@@ -131,6 +133,12 @@ class MockPaymentSimulationServiceTest {
         when(rechargeOrderMapper.selectByOrderNoForUpdate(ORDER_NO)).thenReturn(order);
         when(referenceGenerator.nextProviderTransactionNo())
                 .thenReturn(PROVIDER_TRANSACTION_NO);
+        when(paymentProcessor.process(
+                        eq(order),
+                        eq(MockPaymentOutcome.SUCCESS),
+                        eq(PROVIDER_TRANSACTION_NO),
+                        any(OffsetDateTime.class)))
+                .thenThrow(new BusinessException(PaymentErrorCode.INVALID_STATUS_TRANSITION));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -143,8 +151,6 @@ class MockPaymentSimulationServiceTest {
                         PaymentErrorCode.INVALID_STATUS_TRANSITION,
                         exception.errorCode()),
                 () -> assertEquals(RechargeOrderStatus.FAILED, order.getStatus()));
-        verify(rechargeOrderMapper, never()).updateById(any(RechargeOrder.class));
-        verifyNoInteractions(accountMapper);
     }
 
     @Test
@@ -157,7 +163,7 @@ class MockPaymentSimulationServiceTest {
                         request(MockPaymentOutcome.FAILED)));
 
         assertSame(PaymentErrorCode.INVALID_ORDER_NO, exception.errorCode());
-        verifyNoInteractions(rechargeOrderMapper, accountMapper, referenceGenerator);
+        verifyNoInteractions(rechargeOrderMapper, paymentProcessor, referenceGenerator);
     }
 
     @Test
@@ -167,7 +173,12 @@ class MockPaymentSimulationServiceTest {
         when(rechargeOrderMapper.selectByOrderNoForUpdate(ORDER_NO)).thenReturn(order);
         when(referenceGenerator.nextProviderTransactionNo())
                 .thenReturn(PROVIDER_TRANSACTION_NO);
-        when(rechargeOrderMapper.updateById(order)).thenReturn(0);
+        when(paymentProcessor.process(
+                        eq(order),
+                        eq(MockPaymentOutcome.SUCCESS),
+                        eq(PROVIDER_TRANSACTION_NO),
+                        any(OffsetDateTime.class)))
+                .thenThrow(new BusinessException(PaymentErrorCode.ORDER_UPDATE_CONFLICT));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -176,18 +187,29 @@ class MockPaymentSimulationServiceTest {
                         request(MockPaymentOutcome.SUCCESS)));
 
         assertSame(PaymentErrorCode.ORDER_UPDATE_CONFLICT, exception.errorCode());
-        verifyNoInteractions(accountMapper);
     }
 
     private SimulateRechargePaymentRequest request(MockPaymentOutcome outcome) {
         return new SimulateRechargePaymentRequest(outcome);
     }
 
-    private AdvertiserAccount account() {
-        AdvertiserAccount account = new AdvertiserAccount();
-        account.setId(8L);
-        account.setAdvertiserId(7L);
-        return account;
+    private void stubProcessing(
+            RechargeOrder order,
+            MockPaymentOutcome outcome,
+            String providerTransactionNo) {
+        when(paymentProcessor.process(
+                        eq(order),
+                        eq(outcome),
+                        eq(providerTransactionNo),
+                        any(OffsetDateTime.class)))
+                .thenAnswer(invocation -> {
+                    new RechargeOrderStateMachine().transition(
+                            order,
+                            RechargeOrderStatus.valueOf(outcome.name()),
+                            providerTransactionNo,
+                            invocation.getArgument(3));
+                    return 7L;
+                });
     }
 
     private RechargeOrder pendingOrder() {

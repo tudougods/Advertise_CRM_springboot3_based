@@ -84,6 +84,12 @@ class MockPaymentCallbackPersistenceTest {
                     )
                     """, advertiserId);
             jdbcTemplate.update("""
+                    DELETE FROM advertiser_account_transactions
+                    WHERE advertiser_account_id IN (
+                        SELECT id FROM advertiser_accounts WHERE advertiser_id = ?
+                    )
+                    """, advertiserId);
+            jdbcTemplate.update("""
                     DELETE FROM recharge_orders
                     WHERE advertiser_account_id IN (
                         SELECT id FROM advertiser_accounts WHERE advertiser_id = ?
@@ -97,8 +103,8 @@ class MockPaymentCallbackPersistenceTest {
     }
 
     @Test
-    @DisplayName("合法回调只写 RECEIVED 摘要审计，不改变订单、余额和流水")
-    void trustedCallbackCreatesReceivedAuditOnly() throws Exception {
+    @DisplayName("合法成功回调原子完成订单、余额、流水和 PROCESSED 审计")
+    void trustedCallbackAtomicallyCompletesRecharge() throws Exception {
         AdvertiserResponse advertiser = createAdvertiser();
         RechargeOrderResponse order = createOrder(advertiser.id());
         byte[] payload = payload("evt-" + UUID.randomUUID(), order, advertiser.id(), "txn-1");
@@ -106,14 +112,14 @@ class MockPaymentCallbackPersistenceTest {
         MockPaymentCallbackResponse response = receive(payload);
 
         assertAll(
-                () -> assertEquals(PaymentCallbackStatus.RECEIVED, response.callbackStatus()),
+                () -> assertEquals(PaymentCallbackStatus.PROCESSED, response.callbackStatus()),
                 () -> assertFalse(response.duplicate()),
                 () -> assertEquals(1L, callbackCount(response.eventId())),
                 () -> assertEquals(64, storedPayloadHash(response.eventId()).length()),
-                () -> assertEquals(RechargeOrderStatus.PENDING,
+                () -> assertEquals(RechargeOrderStatus.SUCCESS,
                         rechargeOrderService.findByOrderNo(order.orderNo()).status()),
-                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
-                () -> assertEquals(0L, transactionCount(advertiser.id())));
+                () -> assertEquals(new BigDecimal("250.00"), balance(advertiser.id())),
+                () -> assertEquals(1L, transactionCount(advertiser.id())));
     }
 
     @Test
@@ -190,6 +196,55 @@ class MockPaymentCallbackPersistenceTest {
     }
 
     @Test
+    @DisplayName("合法失败回调原子写入 FAILED 和 PROCESSED 且不产生充值")
+    void failedCallbackCompletesWithoutCredit() throws Exception {
+        AdvertiserResponse advertiser = createAdvertiser();
+        RechargeOrderResponse order = createOrder(advertiser.id());
+        String eventId = "evt-" + UUID.randomUUID();
+        byte[] payload = payload(
+                eventId,
+                order,
+                advertiser.id(),
+                MockPaymentOutcome.FAILED,
+                null);
+
+        MockPaymentCallbackResponse response = receive(payload);
+
+        assertAll(
+                () -> assertEquals(PaymentCallbackStatus.PROCESSED, response.callbackStatus()),
+                () -> assertEquals(RechargeOrderStatus.FAILED,
+                        rechargeOrderService.findByOrderNo(order.orderNo()).status()),
+                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
+                () -> assertEquals(0L, transactionCount(advertiser.id())));
+    }
+
+    @Test
+    @DisplayName("流水冲突会回滚订单、余额和本次回调审计")
+    void ledgerConflictRollsBackWholeRecharge() throws Exception {
+        AdvertiserResponse advertiser = createAdvertiser();
+        RechargeOrderResponse order = createOrder(advertiser.id());
+        String eventId = "evt-" + UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO advertiser_account_transactions (
+                    advertiser_account_id, business_no, transaction_type,
+                    amount, balance_after, created_at
+                ) VALUES (?, ?, 'RECHARGE', 1.00, 0.00, CURRENT_TIMESTAMP)
+                """, order.advertiserAccountId(), order.orderNo());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> receive(payload(eventId, order, advertiser.id(), "txn-conflict")));
+
+        assertAll(
+                () -> assertSame(PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT, exception.errorCode()),
+                () -> assertEquals(0L, callbackCount(eventId)),
+                () -> assertEquals(RechargeOrderStatus.PENDING,
+                        rechargeOrderService.findByOrderNo(order.orderNo()).status()),
+                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
+                () -> assertEquals(1L, transactionCount(advertiser.id())));
+    }
+
+    @Test
     @DisplayName("两个并发相同事件仅创建一条审计且另一请求收到幂等确认")
     void concurrentIdenticalCallbacksCreateOneAudit() throws Exception {
         AdvertiserResponse advertiser = createAdvertiser();
@@ -214,7 +269,9 @@ class MockPaymentCallbackPersistenceTest {
                     () -> assertEquals(1L, responses.stream()
                             .filter(MockPaymentCallbackResponse::duplicate)
                             .count()),
-                    () -> assertEquals(1L, callbackCount(eventId)));
+                    () -> assertEquals(1L, callbackCount(eventId)),
+                    () -> assertEquals(new BigDecimal("250.00"), balance(advertiser.id())),
+                    () -> assertEquals(1L, transactionCount(advertiser.id())));
         } finally {
             executor.shutdownNow();
         }
@@ -239,12 +296,26 @@ class MockPaymentCallbackPersistenceTest {
             RechargeOrderResponse order,
             Long advertiserId,
             String providerTransactionNo) throws Exception {
+        return payload(
+                eventId,
+                order,
+                advertiserId,
+                MockPaymentOutcome.SUCCESS,
+                providerTransactionNo);
+    }
+
+    private byte[] payload(
+            String eventId,
+            RechargeOrderResponse order,
+            Long advertiserId,
+            MockPaymentOutcome outcome,
+            String providerTransactionNo) throws Exception {
         return objectMapper.writeValueAsBytes(new MockPaymentCallbackRequest(
                 eventId,
                 order.orderNo(),
                 advertiserId,
                 order.amount(),
-                MockPaymentOutcome.SUCCESS,
+                outcome,
                 providerTransactionNo));
     }
 

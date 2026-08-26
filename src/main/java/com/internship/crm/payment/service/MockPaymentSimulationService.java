@@ -1,13 +1,10 @@
 package com.internship.crm.payment.service;
 
-import com.internship.crm.account.entity.AdvertiserAccount;
-import com.internship.crm.account.mapper.AdvertiserAccountMapper;
 import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.payment.dto.request.SimulateRechargePaymentRequest;
 import com.internship.crm.payment.dto.response.RechargeOrderResponse;
 import com.internship.crm.payment.entity.MockPaymentOutcome;
 import com.internship.crm.payment.entity.RechargeOrder;
-import com.internship.crm.payment.entity.RechargeOrderStatus;
 import com.internship.crm.payment.exception.PaymentErrorCode;
 import com.internship.crm.payment.mapper.RechargeOrderMapper;
 import java.time.Clock;
@@ -25,20 +22,17 @@ public class MockPaymentSimulationService {
     private static final Logger log = LoggerFactory.getLogger(MockPaymentSimulationService.class);
 
     private final RechargeOrderMapper rechargeOrderMapper;
-    private final AdvertiserAccountMapper accountMapper;
-    private final RechargeOrderStateMachine stateMachine;
+    private final RechargePaymentProcessor paymentProcessor;
     private final MockPaymentReferenceGenerator referenceGenerator;
     private final Clock clock;
 
     public MockPaymentSimulationService(
             RechargeOrderMapper rechargeOrderMapper,
-            AdvertiserAccountMapper accountMapper,
-            RechargeOrderStateMachine stateMachine,
+            RechargePaymentProcessor paymentProcessor,
             MockPaymentReferenceGenerator referenceGenerator,
             Clock clock) {
         this.rechargeOrderMapper = rechargeOrderMapper;
-        this.accountMapper = accountMapper;
-        this.stateMachine = stateMachine;
+        this.paymentProcessor = paymentProcessor;
         this.referenceGenerator = referenceGenerator;
         this.clock = clock;
     }
@@ -53,28 +47,19 @@ public class MockPaymentSimulationService {
             throw new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND);
         }
 
-        RechargeOrderStatus targetStatus = RechargeOrderStatus.valueOf(request.outcome().name());
         String providerTransactionNo = request.outcome() == MockPaymentOutcome.SUCCESS
                 ? referenceGenerator.nextProviderTransactionNo()
                 : null;
-        stateMachine.transition(
+        Long advertiserId = paymentProcessor.process(
                 order,
-                targetStatus,
+                request.outcome(),
                 providerTransactionNo,
                 OffsetDateTime.now(clock));
-        if (rechargeOrderMapper.updateById(order) != 1) {
-            throw new BusinessException(PaymentErrorCode.ORDER_UPDATE_CONFLICT);
-        }
-
-        AdvertiserAccount account = accountMapper.selectById(order.getAdvertiserAccountId());
-        if (account == null) {
-            throw new BusinessException(PaymentErrorCode.ACCOUNT_NOT_FOUND);
-        }
         log.info(
                 "Mock payment completed: orderNo={} outcome={}",
                 order.getOrderNo(),
                 request.outcome());
-        return RechargeOrderResponse.from(order, account.getAdvertiserId());
+        return RechargeOrderResponse.from(order, advertiserId);
     }
 
     private String normalizeOrderNo(String orderNo) {
