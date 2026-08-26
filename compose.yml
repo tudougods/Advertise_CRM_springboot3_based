@@ -38,6 +38,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-advertiser_crm}
       DB_USERNAME: ${POSTGRES_USER:-crm_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:-UTC}
       SERVER_PORT: 8080
     ports:
       - "${SERVER_PORT:-8080}:8080"

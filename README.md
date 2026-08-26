@@ -35,7 +35,7 @@ pgAdmin 登录凭据只用于进入管理页面；PostgreSQL 凭据用于连接�
 [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 ```
 
-把命令生成的值填入本机 `.env` 的 `JWT_SECRET`。该值不得提交到 Git；不同开发环境应使用不同密钥。然后启动应用：
+把命令生成的值填入本机 `.env` 的 `JWT_SECRET`。该值不得提交到 Git；不同开发环境应使用不同密钥。业务日期默认使用 UTC 计算；如项目需要固定到其他业务地区，可以通过 `.env` 中的 `BUSINESS_TIME_ZONE` 设置合法的 IANA 时区，例如 `Australia/Sydney`。然后启动应用：
 
 ```powershell
 .\mvnw.cmd spring-boot:run

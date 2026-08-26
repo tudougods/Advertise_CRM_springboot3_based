@@ -105,6 +105,7 @@ Sprint 完成时应满足：
 - `V6__protect_delivery_account_consistency.sql`（板块 B review 后补充账户流水与投放记录的广告主一致性保护）
 - `V7__serialize_delivery_account_consistency.sql`（为流水关联与投放修正增加统一行锁顺序）
 - `V8__protect_recharge_account_consistency.sql`（整体 review 后补充充值订单与资金流水的账户一致性保护）
+- `V9__enforce_account_transaction_reference_types.sql`（A～D review 后约束流水类型与业务来源一致）
 - 后续如需补充约束或索引，继续创建新的迁移，不回改已执行迁移。
 
 ### 核心字段约定
@@ -254,7 +255,7 @@ delivery/
 
 - 四类报表接口均能通过 Swagger 演示。
 - 固定测试数据的汇总值、CTR、CVR、CPC 与人工计算一致。
-- 查询结果不因时区发生日期偏移；业务日期统一使用 `LocalDate`。
+- 查询结果不因服务器时区发生日期偏移；业务日期统一使用 `LocalDate`，默认查询日期由 `BUSINESS_TIME_ZONE` 指定的业务时区计算，缺省为 UTC。
 
 ## 4.4 板块 D：账户与资金流水模块 `account`
 

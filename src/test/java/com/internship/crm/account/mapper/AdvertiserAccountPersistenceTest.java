@@ -202,6 +202,61 @@ class AdvertiserAccountPersistenceTest {
     }
 
     @Test
+    @DisplayName("V9 拒绝充值流水关联投放记录")
+    void rechargeTransactionCannotReferenceDeliveryRecord() {
+        MigrationInfo migration = Arrays.stream(flyway.info().applied())
+                .filter(info -> info.getVersion() != null)
+                .filter(info -> "9".equals(info.getVersion().getVersion()))
+                .findFirst()
+                .orElse(null);
+        AdvertiserResponse advertiser = createAdvertiser();
+        Long accountId = accountMapper.findByAdvertiserId(advertiser.id()).orElseThrow().getId();
+        Long typeId = advertisingTypeMapper.findByCodeIgnoreCase("SEARCH").orElseThrow().getId();
+        AdvertisingDeliveryRecord record = validDeliveryRecord(advertiser.id(), typeId);
+        deliveryRecordMapper.insert(record);
+
+        assertNotNull(migration, "数据库中应当存在 Flyway V9 的迁移记录");
+        assertEquals(MigrationState.SUCCESS, migration.getState());
+        assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update("""
+                INSERT INTO advertiser_account_transactions (
+                    advertiser_account_id,
+                    business_no,
+                    transaction_type,
+                    amount,
+                    balance_after,
+                    advertising_delivery_record_id
+                ) VALUES (?, ?, 'RECHARGE', 1.00, 1.00, ?)
+                """, accountId, "RECHARGE-WITH-DELIVERY-" + UUID.randomUUID(), record.getId()));
+    }
+
+    @Test
+    @DisplayName("V9 拒绝消费流水关联充值订单")
+    void consumptionTransactionCannotReferenceRechargeOrder() {
+        AdvertiserResponse advertiser = createAdvertiser();
+        Long accountId = accountMapper.findByAdvertiserId(advertiser.id()).orElseThrow().getId();
+        Long rechargeOrderId = jdbcTemplate.queryForObject("""
+                INSERT INTO recharge_orders (
+                    order_no,
+                    advertiser_account_id,
+                    amount,
+                    status
+                ) VALUES (?, ?, 1.00, 'PENDING')
+                RETURNING id
+                """, Long.class, "ORDER-FOR-TYPE-CHECK-" + UUID.randomUUID(), accountId);
+
+        assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update("""
+                INSERT INTO advertiser_account_transactions (
+                    advertiser_account_id,
+                    business_no,
+                    transaction_type,
+                    amount,
+                    balance_after,
+                    recharge_order_id
+                ) VALUES (?, ?, 'CONSUMPTION', 1.00, 0.00, ?)
+                """, accountId, "CONSUMPTION-WITH-ORDER-" + UUID.randomUUID(), rechargeOrderId));
+    }
+
+    @Test
     @DisplayName("无业务历史的广告主和空账户可以一起删除")
     void advertiserWithoutBusinessHistoryCanBeDeletedWithEmptyAccount() {
         AdvertiserResponse advertiser = createAdvertiser();
