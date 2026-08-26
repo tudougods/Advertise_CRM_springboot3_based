@@ -14,6 +14,7 @@ import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,20 @@ class DeliveryReportQueryNormalizerTest {
                 () -> assertEquals(LocalDate.of(2026, 8, 26), criteria.endDate()),
                 () -> assertNull(criteria.advertiserId()),
                 () -> assertNull(criteria.advertisingTypeCode()));
+    }
+
+    @Test
+    @DisplayName("默认日期边界使用配置的业务时区")
+    void defaultDateBoundaryUsesConfiguredBusinessZone() {
+        Clock sydneyClock = Clock.fixed(
+                Instant.parse("2026-08-25T14:30:00Z"),
+                ZoneId.of("Australia/Sydney"));
+        DeliveryReportCriteria criteria = new DeliveryReportQueryNormalizer(sydneyClock)
+                .normalize(new DeliveryReportQuery(null, null, null, null));
+
+        assertAll(
+                () -> assertEquals(LocalDate.of(2026, 7, 28), criteria.startDate()),
+                () -> assertEquals(LocalDate.of(2026, 8, 26), criteria.endDate()));
     }
 
     @Test

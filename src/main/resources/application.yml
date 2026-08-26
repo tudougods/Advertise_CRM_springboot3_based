@@ -26,6 +26,9 @@ spring:
     default-property-inclusion: non_null
     time-zone: UTC
 
+app:
+  business-zone: ${BUSINESS_TIME_ZONE:UTC}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

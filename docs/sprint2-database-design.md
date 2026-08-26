@@ -2,9 +2,9 @@
 
 > 状态：板块 A 已实现并完成验收（2026-08-26）
 >
-> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V8`
+> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V9`
 >
-> 本文记录 `V3`～`V8` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
+> 本文记录 `V3`～`V9` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
 
 ## 1. 设计目标
 
@@ -17,6 +17,7 @@ Sprint 2 在现有用户、广告主分类和广告主档案之上增加广告�
 - 业务历史不会因为删除广告主或字典记录而被级联删除。
 - 账户流水关联的投放记录必须属于同一广告主，结算后不能换绑广告主。
 - 充值订单关联的资金流水必须属于同一个广告主账户。
+- 消费流水只能关联投放记录，充值流水只能关联充值订单。
 - 新迁移同时支持空数据库初始化和现有 Sprint 1 数据库升级。
 
 ## 2. 现有数据库基线
@@ -294,6 +295,7 @@ V5__create_recharge_payment_tables.sql
 V6__protect_delivery_account_consistency.sql
 V7__serialize_delivery_account_consistency.sql
 V8__protect_recharge_account_consistency.sql
+V9__enforce_account_transaction_reference_types.sql
 ```
 
 ### `V3`
@@ -335,6 +337,13 @@ V8__protect_recharge_account_consistency.sql
 - 为资金流水的 `(recharge_order_id, advertiser_account_id)` 增加复合外键。
 - 即使绕过 Service 直接写 SQL，也不能把一个账户的充值订单记入另一个账户的资金流水。
 - 通过新迁移修复整体 review 发现的一致性缺口，不回改已经执行的 V5。
+
+### `V9`
+
+- 为资金流水增加交易类型和业务来源的跨字段检查约束。
+- `advertising_delivery_record_id` 非空时，流水类型必须为 `CONSUMPTION`。
+- `recharge_order_id` 非空时，流水类型必须为 `RECHARGE`。
+- 保留两类业务关联可选的既有设计，但拒绝来源与交易方向不一致的审计数据。
 
 每个迁移文件一经执行不得修改。后续修正通过新版本迁移完成。
 
@@ -456,6 +465,7 @@ FOR UPDATE;
 | 订单回调历史 | `idx_recharge_callbacks_order_received` | 支持按订单倒序查询回调审计记录 |
 | 订单与流水一对一 | `uk_account_transactions_recharge_order_id` | 非空时唯一，防止充值重复入账 |
 | 订单与流水账户一致 | `uk_recharge_orders_id_account` + `fk_account_transactions_recharge_order_account` | 复合键保证充值订单和对应资金流水属于同一账户 |
+| 流水类型与业务来源一致 | `ck_account_transactions_business_reference_type` | 消费只能关联投放记录，充值只能关联充值订单 |
 
 索引是否被使用取决于数据量和过滤条件。小数据量下 PostgreSQL 选择顺序扫描是正常行为；板块 C 和 F 应在固定模拟数据集上记录 `EXPLAIN ANALYZE`，而不是以是否出现 `Index Scan` 作为唯一验收条件。
 
@@ -486,17 +496,17 @@ FOR UPDATE;
 | 账户初始化 | 通过 | V4 为已有广告主补建账户，新建广告主在同一事务中创建零余额账户 |
 | 历史数据删除保护 | 通过 | 投放记录、资金流水或充值订单存在时阻止物理删除广告主 |
 | Java 持久化映射 | 通过 | 投放、账户、流水、订单和回调均完成 Mapper 读写测试 |
-| 回归测试 | 通过 | 在空库迁移后运行完整测试：154 项通过，0 失败，0 错误，0 跳过 |
+| 回归测试 | 通过 | A～D review 修复后运行完整测试：318 项通过，0 失败，0 错误，0 跳过 |
 
-其中板块 A 新增的 PostgreSQL 持久化测试共 47 项：
+其中板块 A 的 PostgreSQL 持久化测试现共 49 项：
 
 - `AdvertisingPersistenceTest`：12 项。
-- `AdvertiserAccountPersistenceTest`：14 项。
+- `AdvertiserAccountPersistenceTest`：16 项。
 - `RechargePaymentPersistenceTest`：21 项。
 
 验收使用的临时数据库在测试完成后已删除；现有开发数据库和业务数据未被清理或重建。
 
-板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`。现有开发数据库已从 `V7` 无损升级到 `V8`，并通过同广告主投放关联、结算后禁止换绑、统一行锁和充值订单/流水同账户约束的 PostgreSQL 持久化测试。
+板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`；A～D 整体 review 后新增 `V9`。现有开发数据库已从 `V8` 无损升级到 `V9`，并通过同广告主投放关联、结算后禁止换绑、统一行锁、充值订单/流水同账户以及交易类型/业务来源一致性约束的 PostgreSQL 持久化测试。
 
 ## 13. 当前边界与后续使用
 
