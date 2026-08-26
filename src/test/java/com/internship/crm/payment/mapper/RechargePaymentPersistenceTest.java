@@ -236,6 +236,29 @@ class RechargePaymentPersistenceTest {
     }
 
     @Test
+    @DisplayName("V8 拒绝把充值订单记入其他广告主账户的资金流水")
+    void rechargeOrderAndAccountTransactionMustBelongToSameAccount() {
+        MigrationInfo migration = Arrays.stream(flyway.info().applied())
+                .filter(info -> info.getVersion() != null)
+                .filter(info -> "8".equals(info.getVersion().getVersion()))
+                .findFirst()
+                .orElse(null);
+        AdvertiserAccount orderAccount = createAccount();
+        AdvertiserAccount otherAccount = createAccount();
+        RechargeOrder order = successfulOrder(
+                orderAccount.getId(), "PROVIDER-TXN-" + UUID.randomUUID());
+        rechargeOrderMapper.insert(order);
+        AdvertiserAccountTransaction crossAccountTransaction =
+                rechargeTransaction(otherAccount.getId(), order.getId());
+
+        assertNotNull(migration, "数据库中应当存在 Flyway V8 的迁移记录");
+        assertEquals(MigrationState.SUCCESS, migration.getState());
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> transactionMapper.insert(crossAccountTransaction));
+    }
+
+    @Test
     @DisplayName("回调历史会阻止充值订单被物理删除")
     void callbackHistoryRestrictsDeletingRechargeOrder() {
         AdvertiserAccount account = createAccount();

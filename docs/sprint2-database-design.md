@@ -2,9 +2,9 @@
 
 > 状态：板块 A 已实现并完成验收（2026-08-26）
 >
-> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V7`
+> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V8`
 >
-> 本文记录 `V3`～`V7` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
+> 本文记录 `V3`～`V8` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
 
 ## 1. 设计目标
 
@@ -16,6 +16,7 @@ Sprint 2 在现有用户、广告主分类和广告主档案之上增加广告�
 - 金额、状态、漏斗指标和唯一性不仅在 Java 中校验，也由 PostgreSQL 约束保护。
 - 业务历史不会因为删除广告主或字典记录而被级联删除。
 - 账户流水关联的投放记录必须属于同一广告主，结算后不能换绑广告主。
+- 充值订单关联的资金流水必须属于同一个广告主账户。
 - 新迁移同时支持空数据库初始化和现有 Sprint 1 数据库升级。
 
 ## 2. 现有数据库基线
@@ -292,6 +293,7 @@ V4__create_advertiser_account_tables.sql
 V5__create_recharge_payment_tables.sql
 V6__protect_delivery_account_consistency.sql
 V7__serialize_delivery_account_consistency.sql
+V8__protect_recharge_account_consistency.sql
 ```
 
 ### `V3`
@@ -326,6 +328,13 @@ V7__serialize_delivery_account_consistency.sql
 - 流水关联校验前锁定账户行和投放记录行。
 - 与投放修正使用相同的行锁顺序，串行化“换绑广告主”和“创建关联流水”的并发请求。
 - 通过新迁移替换 V6 函数定义，不回改已经执行的 V6。
+
+### `V8`
+
+- 为充值订单增加 `(id, advertiser_account_id)` 复合唯一约束。
+- 为资金流水的 `(recharge_order_id, advertiser_account_id)` 增加复合外键。
+- 即使绕过 Service 直接写 SQL，也不能把一个账户的充值订单记入另一个账户的资金流水。
+- 通过新迁移修复整体 review 发现的一致性缺口，不回改已经执行的 V5。
 
 每个迁移文件一经执行不得修改。后续修正通过新版本迁移完成。
 
@@ -446,6 +455,7 @@ FOR UPDATE;
 | 回调事件幂等 | `uk_recharge_callbacks_provider_event_id` | 防止同一支付事件重复保存 |
 | 订单回调历史 | `idx_recharge_callbacks_order_received` | 支持按订单倒序查询回调审计记录 |
 | 订单与流水一对一 | `uk_account_transactions_recharge_order_id` | 非空时唯一，防止充值重复入账 |
+| 订单与流水账户一致 | `uk_recharge_orders_id_account` + `fk_account_transactions_recharge_order_account` | 复合键保证充值订单和对应资金流水属于同一账户 |
 
 索引是否被使用取决于数据量和过滤条件。小数据量下 PostgreSQL 选择顺序扫描是正常行为；板块 C 和 F 应在固定模拟数据集上记录 `EXPLAIN ANALYZE`，而不是以是否出现 `Index Scan` 作为唯一验收条件。
 
@@ -455,11 +465,13 @@ FOR UPDATE;
 
 | 访问模式 | 执行节点 | 实际索引 | 执行时间 |
 | --- | --- | --- | ---: |
-| 广告主 + 日期 + 类型 | `Bitmap Heap Scan` | `idx_advertising_delivery_advertiser_date` | 约 0.48 ms |
-| 日期范围趋势 | `Bitmap Heap Scan` + `HashAggregate` | `idx_advertising_delivery_record_date` | 约 1.58 ms |
-| 类型 + 日期分组 | `Bitmap Heap Scan` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.63 ms |
+| 广告主 + 日期 + 类型总览 | `Nested Loop` + `Bitmap Heap Scan` | `idx_advertising_delivery_advertiser_date` | 约 0.21 ms |
+| 日期范围趋势 | `Hash Join` + `HashAggregate` | `idx_advertising_delivery_record_date` | 约 2.01 ms |
+| 广告主分页 COUNT | `Nested Loop` + `Bitmap Heap Scan` | `idx_advertising_delivery_type_date` | 约 0.33 ms |
+| 广告主维度分页 | `Merge Join` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.68 ms |
+| 广告类型维度 | `Nested Loop` + `HashAggregate` | `idx_advertising_delivery_advertiser_date` | 约 0.25 ms |
 
-现有三个投放查询索引都与实际接口过滤前缀匹配，当前没有新增 `V8` 索引迁移。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
+脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
 
 ## 12. 板块 A 验收结果
 
@@ -476,15 +488,15 @@ FOR UPDATE;
 | Java 持久化映射 | 通过 | 投放、账户、流水、订单和回调均完成 Mapper 读写测试 |
 | 回归测试 | 通过 | 在空库迁移后运行完整测试：154 项通过，0 失败，0 错误，0 跳过 |
 
-其中板块 A 新增的 PostgreSQL 持久化测试共 46 项：
+其中板块 A 新增的 PostgreSQL 持久化测试共 47 项：
 
 - `AdvertisingPersistenceTest`：12 项。
 - `AdvertiserAccountPersistenceTest`：14 项。
-- `RechargePaymentPersistenceTest`：20 项。
+- `RechargePaymentPersistenceTest`：21 项。
 
 验收使用的临时数据库在测试完成后已删除；现有开发数据库和业务数据未被清理或重建。
 
-板块 B 完整 review 后新增 `V6`、`V7` 增量迁移。现有 `V5` 开发数据库已无损升级到 `V7`，并通过同广告主关联、跨广告主拒绝、结算后禁止换绑和行锁定义检查的 PostgreSQL 持久化测试。
+板块 B 完整 review 后新增 `V6`、`V7` 增量迁移；A～C 整体 review 后新增 `V8`。现有开发数据库已从 `V7` 无损升级到 `V8`，并通过同广告主投放关联、结算后禁止换绑、统一行锁和充值订单/流水同账户约束的 PostgreSQL 持久化测试。
 
 ## 13. 当前边界与后续使用
 
