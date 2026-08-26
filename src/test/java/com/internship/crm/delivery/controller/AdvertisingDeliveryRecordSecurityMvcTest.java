@@ -227,6 +227,35 @@ class AdvertisingDeliveryRecordSecurityMvcTest {
     }
 
     @Test
+    @DisplayName("只提供一个日期边界时返回明确 400")
+    void incompleteDateRangeReturnsBadRequest() throws Exception {
+        authorize("operator-incomplete-delivery-dates", user(2L, UserRole.OPERATOR));
+        when(deliveryRecordService.findAll(
+                LocalDate.of(2026, 8, 1), null, null, null, 1, 20))
+                .thenThrow(new BusinessException(DeliveryErrorCode.INCOMPLETE_DATE_RANGE));
+
+        mockMvc.perform(get("/api/v1/delivery-records")
+                        .queryParam("startDate", "2026-08-01")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-incomplete-delivery-dates"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("DELIVERY_INCOMPLETE_DATE_RANGE"));
+    }
+
+    @Test
+    @DisplayName("空白广告类型筛选条件返回统一 400")
+    void blankAdvertisingTypeFilterReturnsValidationError() throws Exception {
+        authorize("operator-blank-delivery-type", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(get("/api/v1/delivery-records")
+                        .queryParam("advertisingTypeCode", "   ")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-blank-delivery-type"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+
+        verify(deliveryRecordService, never()).findAll(any(), any(), any(), any(), any(Long.class), any(Long.class));
+    }
+
+    @Test
     @DisplayName("ADMIN 可以查询投放记录详情")
     void adminCanReadDeliveryRecordDetails() throws Exception {
         authorize("admin-detail-delivery", user(1L, UserRole.ADMIN));
@@ -288,6 +317,21 @@ class AdvertisingDeliveryRecordSecurityMvcTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(11));
+    }
+
+    @Test
+    @DisplayName("已关联资金流水的投放记录更换广告主返回明确 409")
+    void referencedRecordAdvertiserChangeReturnsConflict() throws Exception {
+        authorize("admin-update-referenced-delivery", user(1L, UserRole.ADMIN));
+        when(deliveryRecordService.update(eq(11L), any(UpdateAdvertisingDeliveryRecordRequest.class)))
+                .thenThrow(new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED));
+
+        mockMvc.perform(patch("/api/v1/delivery-records/11")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-update-referenced-delivery")
+                        .contentType(JSON)
+                        .content("{\"advertiserId\":8}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RECORD_ADVERTISER_LOCKED"));
     }
 
     @Test

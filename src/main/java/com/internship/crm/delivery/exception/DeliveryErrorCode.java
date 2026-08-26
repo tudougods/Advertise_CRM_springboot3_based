@@ -20,8 +20,16 @@ public enum DeliveryErrorCode implements ErrorCode {
             "DELIVERY_INVALID_DATE_RANGE", "开始日期不能晚于结束日期", HttpStatus.BAD_REQUEST),
     DATE_RANGE_TOO_LARGE(
             "DELIVERY_DATE_RANGE_TOO_LARGE", "投放记录查询日期范围不能超过 366 天", HttpStatus.BAD_REQUEST),
+    INCOMPLETE_DATE_RANGE(
+            "DELIVERY_INCOMPLETE_DATE_RANGE", "开始日期和结束日期必须同时提供", HttpStatus.BAD_REQUEST),
+    BLANK_ADVERTISING_TYPE_CODE(
+            "DELIVERY_BLANK_ADVERTISING_TYPE_CODE", "广告类型编码不能为空白", HttpStatus.BAD_REQUEST),
     NO_FIELDS_TO_UPDATE(
             "DELIVERY_NO_FIELDS_TO_UPDATE", "至少需要提供一个待修改字段", HttpStatus.BAD_REQUEST),
+    DELIVERY_RECORD_ADVERTISER_LOCKED(
+            "DELIVERY_RECORD_ADVERTISER_LOCKED",
+            "投放记录已关联资金流水，不能更换广告主",
+            HttpStatus.CONFLICT),
     DELIVERY_RECORD_IN_USE(
             "DELIVERY_RECORD_IN_USE", "投放记录已关联资金流水，不能删除", HttpStatus.CONFLICT),
     INVALID_METRICS(

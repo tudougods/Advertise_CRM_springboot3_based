@@ -47,6 +47,23 @@ public interface AdvertisingDeliveryRecordMapper extends BaseMapper<AdvertisingD
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insertIfExternalRecordNoAbsent(AdvertisingDeliveryRecord record);
 
+    @Select("""
+            SELECT *
+            FROM advertising_delivery_records
+            WHERE id = #{id}
+            FOR UPDATE
+            """)
+    AdvertisingDeliveryRecord selectByIdForUpdate(@Param("id") Long id);
+
+    @Select("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM advertiser_account_transactions
+                WHERE advertising_delivery_record_id = #{id}
+            )
+            """)
+    boolean hasAccountTransactionReference(@Param("id") Long id);
+
     @Delete("""
             DELETE FROM advertising_delivery_records record
             WHERE record.id = #{id}

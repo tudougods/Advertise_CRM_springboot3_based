@@ -17,6 +17,7 @@ import com.internship.crm.delivery.mapper.AdvertisingDeliveryRecordMapper;
 import com.internship.crm.delivery.mapper.AdvertisingTypeMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -32,14 +33,17 @@ public class AdvertisingDeliveryRecordService {
     private final AdvertisingDeliveryRecordMapper deliveryRecordMapper;
     private final AdvertisingTypeMapper advertisingTypeMapper;
     private final AdvertiserMapper advertiserMapper;
+    private final Clock clock;
 
     public AdvertisingDeliveryRecordService(
             AdvertisingDeliveryRecordMapper deliveryRecordMapper,
             AdvertisingTypeMapper advertisingTypeMapper,
-            AdvertiserMapper advertiserMapper) {
+            AdvertiserMapper advertiserMapper,
+            Clock clock) {
         this.deliveryRecordMapper = deliveryRecordMapper;
         this.advertisingTypeMapper = advertisingTypeMapper;
         this.advertiserMapper = advertiserMapper;
+        this.clock = clock;
     }
 
     @Transactional
@@ -49,7 +53,7 @@ public class AdvertisingDeliveryRecordService {
 
         Advertiser advertiser = requireActiveAdvertiser(request.advertiserId());
         AdvertisingType advertisingType = requireActiveAdvertisingType(request.advertisingTypeCode().trim());
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
 
         AdvertisingDeliveryRecord record = new AdvertisingDeliveryRecord();
         record.setExternalRecordNo(request.externalRecordNo().trim());
@@ -73,13 +77,17 @@ public class AdvertisingDeliveryRecordService {
     public AdvertisingDeliveryRecordResponse update(
             Long id, UpdateAdvertisingDeliveryRecordRequest request) {
         ensureUpdateHasFields(request);
-        AdvertisingDeliveryRecord record = deliveryRecordMapper.selectById(id);
+        AdvertisingDeliveryRecord record = deliveryRecordMapper.selectByIdForUpdate(id);
         if (record == null) {
             throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
         }
 
-        if (request.advertiserId() != null
-                && !Objects.equals(record.getAdvertiserId(), request.advertiserId())) {
+        boolean changingAdvertiser = request.advertiserId() != null
+                && !Objects.equals(record.getAdvertiserId(), request.advertiserId());
+        if (changingAdvertiser) {
+            if (deliveryRecordMapper.hasAccountTransactionReference(id)) {
+                throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED);
+            }
             Advertiser advertiser = requireActiveAdvertiser(request.advertiserId());
             record.setAdvertiserId(advertiser.getId());
         }
@@ -105,9 +113,17 @@ public class AdvertisingDeliveryRecordService {
         }
 
         validateMetrics(record.getImpressions(), record.getClicks(), record.getConversions());
-        record.setUpdatedAt(OffsetDateTime.now());
-        if (deliveryRecordMapper.updateById(record) == 0) {
-            throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+        record.setUpdatedAt(OffsetDateTime.now(clock));
+        try {
+            if (deliveryRecordMapper.updateById(record) == 0) {
+                throw new BusinessException(DeliveryErrorCode.DELIVERY_RECORD_NOT_FOUND);
+            }
+        } catch (DataIntegrityViolationException exception) {
+            if (changingAdvertiser) {
+                throw new BusinessException(
+                        DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED, exception);
+            }
+            throw exception;
         }
         return findById(id);
     }
@@ -145,7 +161,7 @@ public class AdvertisingDeliveryRecordService {
             String advertisingTypeCode,
             long page,
             long size) {
-        validateDateRange(startDate, endDate);
+        DateRange dateRange = normalizeDateRange(startDate, endDate);
         Long advertisingTypeId = resolveAdvertisingTypeId(advertisingTypeCode);
         if (advertisingTypeCode != null && advertisingTypeId == null) {
             return PageResponse.of(List.of(), page, size, 0);
@@ -153,8 +169,8 @@ public class AdvertisingDeliveryRecordService {
 
         Page<AdvertisingDeliveryRecordResponse> result = deliveryRecordMapper.selectPageWithDetails(
                 new Page<>(page, size),
-                startDate,
-                endDate,
+                dateRange.startDate(),
+                dateRange.endDate(),
                 advertiserId,
                 advertisingTypeId);
         return PageResponse.of(
@@ -187,16 +203,20 @@ public class AdvertisingDeliveryRecordService {
         }
         String normalizedCode = code.trim();
         if (normalizedCode.isEmpty()) {
-            return null;
+            throw new BusinessException(DeliveryErrorCode.BLANK_ADVERTISING_TYPE_CODE);
         }
         return advertisingTypeMapper.findByCodeIgnoreCase(normalizedCode)
                 .map(AdvertisingType::getId)
                 .orElse(null);
     }
 
-    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+    private DateRange normalizeDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null && endDate == null) {
+            LocalDate defaultEndDate = LocalDate.now(clock);
+            return new DateRange(defaultEndDate.minusDays(29), defaultEndDate);
+        }
         if (startDate == null || endDate == null) {
-            return;
+            throw new BusinessException(DeliveryErrorCode.INCOMPLETE_DATE_RANGE);
         }
         if (startDate.isAfter(endDate)) {
             throw new BusinessException(DeliveryErrorCode.INVALID_DATE_RANGE);
@@ -204,6 +224,7 @@ public class AdvertisingDeliveryRecordService {
         if (ChronoUnit.DAYS.between(startDate, endDate) > 365) {
             throw new BusinessException(DeliveryErrorCode.DATE_RANGE_TOO_LARGE);
         }
+        return new DateRange(startDate, endDate);
     }
 
     private void validateMetrics(Long impressions, Long clicks, Long conversions) {
@@ -244,5 +265,8 @@ public class AdvertisingDeliveryRecordService {
                 && request.spend() == null) {
             throw new BusinessException(DeliveryErrorCode.NO_FIELDS_TO_UPDATE);
         }
+    }
+
+    private record DateRange(LocalDate startDate, LocalDate endDate) {
     }
 }

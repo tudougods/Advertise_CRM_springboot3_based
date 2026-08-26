@@ -29,8 +29,11 @@ import com.internship.crm.delivery.mapper.AdvertisingDeliveryRecordMapper;
 import com.internship.crm.delivery.mapper.AdvertisingTypeMapper;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.List;
 import java.util.stream.Stream;
@@ -50,6 +53,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 @ExtendWith({MockitoExtension.class, ReadableTestResultExtension.class})
 class AdvertisingDeliveryRecordServiceTest {
 
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-08-26T00:00:00Z"), ZoneOffset.UTC);
+
     @Mock
     private AdvertisingDeliveryRecordMapper deliveryRecordMapper;
 
@@ -64,7 +70,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @BeforeEach
     void setUp() {
         deliveryRecordService = new AdvertisingDeliveryRecordService(
-                deliveryRecordMapper, advertisingTypeMapper, advertiserMapper);
+                deliveryRecordMapper, advertisingTypeMapper, advertiserMapper, FIXED_CLOCK);
     }
 
     @Test
@@ -206,12 +212,65 @@ class AdvertisingDeliveryRecordServiceTest {
     }
 
     @Test
+    @DisplayName("未提供日期时默认查询最近 30 天")
+    void missingDateRangeUsesDefaultThirtyDayWindow() {
+        Page<AdvertisingDeliveryRecordResponse> mapperPage = new Page<>(1, 20, 0);
+        mapperPage.setRecords(List.of());
+        when(deliveryRecordMapper.selectPageWithDetails(
+                any(),
+                eq(LocalDate.of(2026, 7, 28)),
+                eq(LocalDate.of(2026, 8, 26)),
+                eq(null),
+                eq(null)))
+                .thenReturn(mapperPage);
+
+        deliveryRecordService.findAll(null, null, null, null, 1, 20);
+
+        verify(deliveryRecordMapper).selectPageWithDetails(
+                any(),
+                eq(LocalDate.of(2026, 7, 28)),
+                eq(LocalDate.of(2026, 8, 26)),
+                eq(null),
+                eq(null));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("incompleteDateRanges")
+    @DisplayName("只提供一个日期边界时拒绝查询")
+    void incompleteDateRangeIsRejected(String scenario, LocalDate startDate, LocalDate endDate) {
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.findAll(startDate, endDate, null, null, 1, 20));
+
+        assertSame(DeliveryErrorCode.INCOMPLETE_DATE_RANGE, exception.errorCode());
+        verify(deliveryRecordMapper, never()).selectPageWithDetails(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("空白广告类型编码被拒绝")
+    void blankAdvertisingTypeCodeIsRejected() {
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.findAll(
+                        LocalDate.of(2026, 8, 1),
+                        LocalDate.of(2026, 8, 26),
+                        null,
+                        "   ",
+                        1,
+                        20));
+
+        assertSame(DeliveryErrorCode.BLANK_ADVERTISING_TYPE_CODE, exception.errorCode());
+        verifyNoInteractions(advertisingTypeMapper);
+        verify(deliveryRecordMapper, never()).selectPageWithDetails(any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("局部修正只更新提供字段并保持外部记录号不变")
     void updateChangesOnlyProvidedFields() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
         OffsetDateTime originalUpdatedAt = existing.getUpdatedAt();
         AdvertisingDeliveryRecordResponse expected = response(11L, "DELIVERY-001");
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
         when(deliveryRecordMapper.updateById(existing)).thenReturn(1);
         when(deliveryRecordMapper.selectDetailById(11L)).thenReturn(expected);
 
@@ -235,7 +294,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @DisplayName("修正广告主和广告类型时校验新关联并保存对应 ID")
     void updateChangesValidatedRelations() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
         when(advertiserMapper.selectById(8L))
                 .thenReturn(advertiser(8L, AdvertiserStatus.ACTIVE));
         AdvertisingType video = advertisingType(4L, AdvertisingTypeStatus.ACTIVE);
@@ -259,6 +318,47 @@ class AdvertisingDeliveryRecordServiceTest {
     }
 
     @Test
+    @DisplayName("已关联资金流水的投放记录不能更换广告主")
+    void referencedRecordCannotChangeAdvertiser() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.hasAccountTransactionReference(11L)).thenReturn(true);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                8L, null, null, null, null, null, null)));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED, exception.errorCode());
+        verifyNoInteractions(advertiserMapper);
+        verify(deliveryRecordMapper, never()).updateById(any(AdvertisingDeliveryRecord.class));
+    }
+
+    @Test
+    @DisplayName("换绑广告主与并发资金关联冲突时转换为明确 409")
+    void advertiserChangeConstraintRaceReturnsConflict() {
+        AdvertisingDeliveryRecord existing = deliveryRecord();
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.hasAccountTransactionReference(11L)).thenReturn(false);
+        when(advertiserMapper.selectById(8L))
+                .thenReturn(advertiser(8L, AdvertiserStatus.ACTIVE));
+        when(deliveryRecordMapper.updateById(existing))
+                .thenThrow(new DataIntegrityViolationException("concurrent reference"));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        11L,
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                8L, null, null, null, null, null, null)));
+
+        assertSame(DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED, exception.errorCode());
+        assertTrue(exception.getCause() instanceof DataIntegrityViolationException);
+    }
+
+    @Test
     @DisplayName("空的局部修正请求被拒绝")
     void emptyUpdateIsRejected() {
         UpdateAdvertisingDeliveryRecordRequest empty =
@@ -269,13 +369,13 @@ class AdvertisingDeliveryRecordServiceTest {
                 () -> deliveryRecordService.update(11L, empty));
 
         assertSame(DeliveryErrorCode.NO_FIELDS_TO_UPDATE, exception.errorCode());
-        verify(deliveryRecordMapper, never()).selectById(any());
+        verify(deliveryRecordMapper, never()).selectByIdForUpdate(any());
     }
 
     @Test
     @DisplayName("修正不存在的投放记录返回明确错误")
     void updateMissingRecordReturnsNotFound() {
-        when(deliveryRecordMapper.selectById(404L)).thenReturn(null);
+        when(deliveryRecordMapper.selectByIdForUpdate(404L)).thenReturn(null);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -291,7 +391,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @DisplayName("局部修正后形成非法漏斗关系时不写入数据库")
     void updateRejectsInvalidMergedMetrics() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -308,7 +408,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @DisplayName("局部修正不能换绑到已禁用的广告主")
     void updateRejectsDisabledAdvertiser() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
         when(advertiserMapper.selectById(8L))
                 .thenReturn(advertiser(8L, AdvertiserStatus.DISABLED));
 
@@ -327,7 +427,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @DisplayName("局部修正不能换绑到已禁用的广告类型")
     void updateRejectsDisabledAdvertisingType() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
         when(advertisingTypeMapper.findByCodeIgnoreCase("VIDEO"))
                 .thenReturn(Optional.of(advertisingType(4L, AdvertisingTypeStatus.DISABLED)));
 
@@ -346,7 +446,7 @@ class AdvertisingDeliveryRecordServiceTest {
     @DisplayName("并发删除导致更新行数为零时返回记录不存在")
     void updateReturningZeroRowsIsTreatedAsNotFound() {
         AdvertisingDeliveryRecord existing = deliveryRecord();
-        when(deliveryRecordMapper.selectById(11L)).thenReturn(existing);
+        when(deliveryRecordMapper.selectByIdForUpdate(11L)).thenReturn(existing);
         when(deliveryRecordMapper.updateById(existing)).thenReturn(0);
 
         BusinessException exception = assertThrows(
@@ -499,6 +599,12 @@ class AdvertisingDeliveryRecordServiceTest {
                         "花费整数部分不能超过十七位"));
     }
 
+    private static Stream<Arguments> incompleteDateRanges() {
+        return Stream.of(
+                Arguments.of("只提供开始日期", LocalDate.of(2026, 8, 1), null),
+                Arguments.of("只提供结束日期", null, LocalDate.of(2026, 8, 26)));
+    }
+
     private CreateAdvertisingDeliveryRecordRequest validRequest() {
         return request("DELIVERY-001", 7L, "SEARCH", 10_000L, 500L, 30L,
                 new BigDecimal("300.00"));
@@ -563,7 +669,7 @@ class AdvertisingDeliveryRecordServiceTest {
     }
 
     private AdvertisingDeliveryRecord deliveryRecord() {
-        OffsetDateTime now = OffsetDateTime.now().minusMinutes(1);
+        OffsetDateTime now = OffsetDateTime.now(FIXED_CLOCK).minusMinutes(1);
         AdvertisingDeliveryRecord record = new AdvertisingDeliveryRecord();
         record.setId(11L);
         record.setExternalRecordNo("DELIVERY-001");

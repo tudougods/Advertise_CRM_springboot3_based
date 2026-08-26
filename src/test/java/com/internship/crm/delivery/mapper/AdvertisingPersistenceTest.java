@@ -96,6 +96,48 @@ class AdvertisingPersistenceTest {
     }
 
     @Test
+    @DisplayName("V6 创建投放记录与账户流水的广告主一致性保护")
+    void v6CreatesDeliveryAccountConsistencyProtection() {
+        MigrationInfo migration = Arrays.stream(flyway.info().applied())
+                .filter(info -> info.getVersion() != null)
+                .filter(info -> "6".equals(info.getVersion().getVersion()))
+                .findFirst()
+                .orElseThrow();
+        Long triggerCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(DISTINCT trigger_name)
+                FROM information_schema.triggers
+                WHERE trigger_name IN (
+                    'trg_account_transaction_delivery_advertiser',
+                    'trg_referenced_delivery_advertiser_change'
+                )
+                """, Long.class);
+
+        assertAll(
+                () -> assertEquals(MigrationState.SUCCESS, migration.getState()),
+                () -> assertEquals(2L, triggerCount));
+    }
+
+    @Test
+    @DisplayName("V7 为账户流水与投放记录一致性校验增加行锁")
+    void v7SerializesDeliveryAccountConsistencyCheck() {
+        MigrationInfo migration = Arrays.stream(flyway.info().applied())
+                .filter(info -> info.getVersion() != null)
+                .filter(info -> "7".equals(info.getVersion().getVersion()))
+                .findFirst()
+                .orElseThrow();
+        String functionDefinition = jdbcTemplate.queryForObject("""
+                SELECT pg_get_functiondef(
+                    'validate_account_transaction_delivery_advertiser()'::regprocedure
+                )
+                """, String.class);
+
+        assertAll(
+                () -> assertEquals(MigrationState.SUCCESS, migration.getState()),
+                () -> assertNotNull(functionDefinition),
+                () -> assertTrue(functionDefinition.contains("FOR UPDATE")));
+    }
+
+    @Test
     @DisplayName("Mapper 可以按编码查询类型并完整持久化投放记录")
     void mappersPersistAndReadAdvertisingRecord() {
         AdvertiserResponse advertiser = createAdvertiser();
@@ -302,6 +344,60 @@ class AdvertisingPersistenceTest {
     }
 
     @Test
+    @DisplayName("Service 拒绝把已关联资金流水的投放记录换绑给其他广告主")
+    void serviceRejectsChangingReferencedRecordAdvertiser() {
+        AdvertiserResponse originalAdvertiser = createAdvertiser();
+        AdvertiserResponse replacementAdvertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(originalAdvertiser.id(), "SEARCH", LocalDate.of(2026, 8, 20)));
+        insertConsumptionTransaction(originalAdvertiser.id(), created.id());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> deliveryRecordService.update(
+                        created.id(),
+                        new UpdateAdvertisingDeliveryRecordRequest(
+                                replacementAdvertiser.id(), null, null, null, null, null, null)));
+        AdvertisingDeliveryRecord reloaded = deliveryRecordMapper.selectById(created.id());
+
+        assertAll(
+                () -> assertEquals(
+                        DeliveryErrorCode.DELIVERY_RECORD_ADVERTISER_LOCKED,
+                        exception.errorCode()),
+                () -> assertEquals(originalAdvertiser.id(), reloaded.getAdvertiserId()));
+    }
+
+    @Test
+    @DisplayName("数据库拒绝账户与投放记录属于不同广告主的资金流水")
+    void databaseRejectsMismatchedTransactionAdvertiser() {
+        AdvertiserResponse deliveryAdvertiser = createAdvertiser();
+        AdvertiserResponse accountAdvertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(deliveryAdvertiser.id(), "DISPLAY", LocalDate.of(2026, 8, 20)));
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> insertConsumptionTransaction(accountAdvertiser.id(), created.id()));
+    }
+
+    @Test
+    @DisplayName("数据库拒绝直接修改已关联资金流水投放记录的广告主")
+    void databaseRejectsDirectReferencedRecordAdvertiserChange() {
+        AdvertiserResponse originalAdvertiser = createAdvertiser();
+        AdvertiserResponse replacementAdvertiser = createAdvertiser();
+        AdvertisingDeliveryRecordResponse created = deliveryRecordService.create(
+                queryRecordRequest(originalAdvertiser.id(), "VIDEO", LocalDate.of(2026, 8, 20)));
+        insertConsumptionTransaction(originalAdvertiser.id(), created.id());
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> jdbcTemplate.update(
+                        "UPDATE advertising_delivery_records SET advertiser_id = ? WHERE id = ?",
+                        replacementAdvertiser.id(),
+                        created.id()));
+    }
+
+    @Test
     @DisplayName("广告类型编码不区分大小写唯一")
     void advertisingTypeCodeIsUniqueIgnoringCase() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -395,6 +491,24 @@ class AdvertisingPersistenceTest {
                 null,
                 null,
                 null));
+    }
+
+    private void insertConsumptionTransaction(Long advertiserId, Long deliveryRecordId) {
+        Long accountId = jdbcTemplate.queryForObject(
+                "SELECT id FROM advertiser_accounts WHERE advertiser_id = ?",
+                Long.class,
+                advertiserId);
+        jdbcTemplate.update("""
+                INSERT INTO advertiser_account_transactions (
+                    advertiser_account_id,
+                    business_no,
+                    transaction_type,
+                    amount,
+                    balance_after,
+                    advertising_delivery_record_id,
+                    created_at
+                ) VALUES (?, ?, 'CONSUMPTION', 1.00, 0.00, ?, CURRENT_TIMESTAMP)
+                """, accountId, "CONSUME-" + UUID.randomUUID(), deliveryRecordId);
     }
 
     private AdvertisingDeliveryRecord validRecord(Long advertiserId, Long advertisingTypeId) {
