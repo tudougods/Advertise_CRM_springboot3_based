@@ -102,6 +102,8 @@ Sprint 完成时应满足：
 - `V3__create_advertising_tables.sql`
 - `V4__create_advertiser_account_tables.sql`
 - `V5__create_recharge_payment_tables.sql`
+- `V6__protect_delivery_account_consistency.sql`（板块 B review 后补充账户流水与投放记录的广告主一致性保护）
+- `V7__serialize_delivery_account_consistency.sql`（为流水关联与投放修正增加统一行锁顺序）
 - 后续如需补充约束或索引，继续创建新的迁移，不回改已执行迁移。
 
 ### 核心字段约定
@@ -163,8 +165,11 @@ Sprint 完成时应满足：
 - 广告主和广告类型必须存在且处于可用状态。
 - 同一 `externalRecordNo` 重复提交返回 409，不能重复入库。
 - `startDate` 不得晚于 `endDate`。
+- `startDate`、`endDate` 必须成对提供；均不提供时默认查询最近 30 天，最大跨度为 366 天。
+- 广告类型筛选编码不能为空白。
 - 展示、点击、转化、花费均不得为负，且维持漏斗关系。
 - 修改或删除投放数据只改变数据事实，不自动修改资金流水，避免历史数据修正造成隐式重复扣费。
+- 已关联资金流水的投放记录不能换绑广告主，数据库同时保证流水账户与投放记录属于同一广告主。
 - 若需要关联消费，使用独立消费接口的 `deliveryRecordId`/`businessNo` 显式关联。
 
 ### 代码结构

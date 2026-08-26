@@ -2,9 +2,9 @@
 
 > 状态：板块 A 已实现并完成验收（2026-08-26）
 >
-> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V5`
+> 适用迁移：现有 `V1`、`V2` 之后的 `V3`～`V7`
 >
-> 本文记录 `V3`～`V5` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
+> 本文记录 `V3`～`V7` 的实际表结构、约束、索引、核心 SQL 设计和验收结果
 
 ## 1. 设计目标
 
@@ -15,6 +15,7 @@ Sprint 2 在现有用户、广告主分类和广告主档案之上增加广告�
 - 重复投放数据、重复消费和重复支付回调不能重复入账。
 - 金额、状态、漏斗指标和唯一性不仅在 Java 中校验，也由 PostgreSQL 约束保护。
 - 业务历史不会因为删除广告主或字典记录而被级联删除。
+- 账户流水关联的投放记录必须属于同一广告主，结算后不能换绑广告主。
 - 新迁移同时支持空数据库初始化和现有 Sprint 1 数据库升级。
 
 ## 2. 现有数据库基线
@@ -289,6 +290,8 @@ V2__allow_pending_user_status.sql
 V3__create_advertising_tables.sql
 V4__create_advertiser_account_tables.sql
 V5__create_recharge_payment_tables.sql
+V6__protect_delivery_account_consistency.sql
+V7__serialize_delivery_account_consistency.sql
 ```
 
 ### `V3`
@@ -311,6 +314,18 @@ V5__create_recharge_payment_tables.sql
 - 创建 `recharge_payment_callbacks`。
 - 为资金流水增加 `recharge_order_id` 关联和唯一性保护。
 - 添加订单号、回调事件号、状态和查询索引。
+
+### `V6`
+
+- 校验资金流水账户和关联投放记录属于同一广告主。
+- 禁止已关联资金流水的投放记录更换广告主。
+- 使用数据库触发器保护绕过 Service 的直接 SQL 和并发竞态。
+
+### `V7`
+
+- 流水关联校验前锁定账户行和投放记录行。
+- 与投放修正使用相同的行锁顺序，串行化“换绑广告主”和“创建关联流水”的并发请求。
+- 通过新迁移替换 V6 函数定义，不回改已经执行的 V6。
 
 每个迁移文件一经执行不得修改。后续修正通过新版本迁移完成。
 
@@ -454,6 +469,8 @@ FOR UPDATE;
 - `RechargePaymentPersistenceTest`：20 项。
 
 验收使用的临时数据库在测试完成后已删除；现有开发数据库和业务数据未被清理或重建。
+
+板块 B 完整 review 后新增 `V6`、`V7` 增量迁移。现有 `V5` 开发数据库已无损升级到 `V7`，并通过同广告主关联、跨广告主拒绝、结算后禁止换绑和行锁定义检查的 PostgreSQL 持久化测试。
 
 ## 13. 当前边界与后续使用
 

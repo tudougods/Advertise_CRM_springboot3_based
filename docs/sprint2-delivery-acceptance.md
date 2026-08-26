@@ -2,7 +2,7 @@
 
 > 验收日期：2026-08-26
 >
-> 验收结论：B1～B5 已完成，可以进入 PR Review。
+> 验收结论：B1～B5 已完成，完整 review 发现的问题已修复，可以进入 PR Review。
 
 ## 1. 已实现接口
 
@@ -15,16 +15,19 @@
 | `PATCH` | `/api/v1/delivery-records/{id}` | 局部修正投放记录 | `ADMIN` |
 | `DELETE` | `/api/v1/delivery-records/{id}` | 删除未关联资金流水的误录数据 | `ADMIN` |
 
-列表接口支持 `startDate`、`endDate`、`advertiserId`、`advertisingTypeCode`、`page`、`size`。结果按 `record_date DESC, id DESC` 稳定排序，使用数据库物理分页，并通过一次关联查询返回广告主和广告类型名称，未引入 N+1 查询。
+列表接口支持 `startDate`、`endDate`、`advertiserId`、`advertisingTypeCode`、`page`、`size`。起止日期必须成对提供；均不提供时默认查询最近 30 天。结果按 `record_date DESC, id DESC` 稳定排序，使用数据库物理分页，并通过一次关联查询返回广告主和广告类型名称，未引入 N+1 查询。
 
 ## 2. 核心业务规则
 
 - 广告主和广告类型必须存在且处于启用状态。
 - `externalRecordNo` 全局唯一；录入使用原子条件插入，并发重复请求也只会成功一次。
 - 展示、点击、转化和花费不能为负，且满足 `conversions <= clicks <= impressions`。
-- 查询开始日期不能晚于结束日期；同时提供起止日期时，包含首尾日期且跨度不能超过 366 天。
-- 每页最多返回 100 条记录；不存在的广告类型筛选直接返回空页。
-- 局部修正只更新请求中提供的字段，`externalRecordNo` 不允许修改；修改关联对象时重新校验其启用状态。
+- 查询开始日期不能晚于结束日期；起止日期必须成对提供，均不提供时默认最近 30 天，包含首尾日期且跨度不能超过 366 天。
+- 广告类型筛选编码不能为空白；不存在的非空编码直接返回空页。
+- 每页最多返回 100 条记录。
+- 局部修正使用数据库行锁串行化并发修改，只更新请求中提供的字段，`externalRecordNo` 不允许修改；修改关联对象时重新校验其启用状态。
+- 已关联资金流水的投放记录不能换绑广告主，返回 `409 DELIVERY_RECORD_ADVERTISER_LOCKED`。
+- `V6` 触发器保证流水账户与投放记录属于同一广告主；`V7` 在关联前锁定账户和投放记录，与 PATCH 形成统一锁顺序，阻止绕过 Service 的直接 SQL 和并发竞态。
 - 删除使用带 `NOT EXISTS` 的单条条件 SQL。未被资金流水引用的记录可物理删除；已被引用时返回 `409 DELIVERY_RECORD_IN_USE` 并保留业务历史。
 - 数据库外键继续作为并发删除/关联竞态的最终保护；约束冲突会转换为统一的 409 业务错误。
 
@@ -35,11 +38,14 @@
 | `400` | `DELIVERY_INVALID_METRICS` | 指标或花费不符合约束 |
 | `400` | `DELIVERY_INVALID_DATE_RANGE` | 开始日期晚于结束日期 |
 | `400` | `DELIVERY_DATE_RANGE_TOO_LARGE` | 查询日期跨度超过 366 天 |
+| `400` | `DELIVERY_INCOMPLETE_DATE_RANGE` | 只提供开始日期或结束日期 |
+| `400` | `COMMON_VALIDATION_ERROR` | 广告类型筛选编码为空白等请求参数校验失败 |
 | `400` | `DELIVERY_NO_FIELDS_TO_UPDATE` | PATCH 未提供任何可修改字段 |
 | `404` | `DELIVERY_ADVERTISER_NOT_FOUND` | 广告主不存在 |
 | `404` | `DELIVERY_ADVERTISING_TYPE_NOT_FOUND` | 广告类型不存在 |
 | `404` | `DELIVERY_RECORD_NOT_FOUND` | 投放记录不存在 |
 | `409` | `DELIVERY_EXTERNAL_RECORD_NO_ALREADY_EXISTS` | 外部记录号重复 |
+| `409` | `DELIVERY_RECORD_ADVERTISER_LOCKED` | 已关联资金流水的记录尝试换绑广告主 |
 | `409` | `DELIVERY_RECORD_IN_USE` | 投放记录已关联资金流水，禁止删除 |
 
 认证失败、权限不足和参数校验错误继续复用项目统一响应结构。
@@ -52,14 +58,17 @@
 .\scripts\test.cmd
 ```
 
-结果：项目全量测试 `215/215` 通过。
+结果：项目全量测试 `229/229` 通过。
 
-B5 删除能力还单独执行了 Service、MockMvc 和 PostgreSQL 持久化专项测试，共 `68/68` 通过。覆盖内容包括：
+板块 B 的 5 个测试套件共 `87/87` 通过；其中投放记录 Service、MockMvc 和 PostgreSQL 持久化专项测试共 `82/82` 通过。覆盖内容包括：
 
 - ADMIN/OPERATOR 删除权限边界。
 - 删除成功、记录不存在 404、存在资金流水 409。
 - 条件删除与数据库外键冲突兜底。
 - 未引用记录确实被物理删除；被引用记录及对应资金流水均被保留。
+- 默认 30 天查询窗口、单边日期拒绝和空白类型编码拒绝。
+- 已结算记录禁止换绑广告主、并发冲突转换和 V6/V7 数据库触发器及行锁兜底。
+- 跨广告主资金流水关联会被 PostgreSQL 直接拒绝。
 - B1～B4 的录入、查询、分页和修正能力回归。
 
 ## 5. B1～B5 提交记录
@@ -71,6 +80,7 @@ B5 删除能力还单独执行了 Service、MockMvc 和 PostgreSQL 持久化专�
 | B3 | `8dffe97` | 组合筛选、详情和物理分页 |
 | B4 | `79bb83b` | ADMIN 局部修正 |
 | B5 | `80b37d1` | 受保护删除及完整测试 |
+| Review 修复 | `df47877` | 查询边界、并发更新和账户流水一致性保护 |
 
 ## 6. 模块边界
 
@@ -80,4 +90,4 @@ B5 删除能力还单独执行了 Service、MockMvc 和 PostgreSQL 持久化专�
 - 根据投放记录扣减余额并生成消费流水：板块 D。
 - 30 天多广告主、多广告类型的完整演示数据和报表展示：在板块 C 及 Sprint 2 Demo 阶段统一补充。
 
-因此，修正投放记录不会隐式调整历史资金流水；已关联流水的记录也不能删除。
+因此，修正投放记录不会隐式调整历史资金流水；已关联流水的记录不能删除，也不能换绑广告主。
