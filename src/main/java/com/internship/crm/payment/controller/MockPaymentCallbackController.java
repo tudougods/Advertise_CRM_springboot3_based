@@ -7,6 +7,7 @@ import com.internship.crm.payment.service.MockPaymentCallbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,7 +45,14 @@ public class MockPaymentCallbackController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "事件、广告主或金额冲突")
     })
     public ApiResponse<MockPaymentCallbackResponse> receive(
+            @Parameter(
+                    description = "回调发起时的 Unix 秒级时间戳，参与 HMAC-SHA256 签名",
+                    required = true,
+                    example = "1787792400")
             @RequestHeader(value = TIMESTAMP_HEADER, required = false) String timestamp,
+            @Parameter(
+                    description = "sha256=<timestamp + '.' + HTTP 原始请求体的 64 位十六进制 HMAC-SHA256>",
+                    required = true)
             @RequestHeader(value = SIGNATURE_HEADER, required = false) String signature,
             @RequestBody byte[] rawPayload) {
         return ApiResponse.success(callbackService.receive(timestamp, signature, rawPayload));
