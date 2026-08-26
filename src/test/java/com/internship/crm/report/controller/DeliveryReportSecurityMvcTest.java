@@ -1,6 +1,7 @@
 package com.internship.crm.report.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,10 +15,15 @@ import com.internship.crm.auth.security.RestAuthenticationEntryPoint;
 import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.filter.RequestLoggingFilter;
+import com.internship.crm.common.response.PageResponse;
 import com.internship.crm.config.SecurityConfig;
 import com.internship.crm.report.dto.request.DeliveryReportQuery;
+import com.internship.crm.report.dto.response.AdvertiserDeliveryReportResponse;
+import com.internship.crm.report.dto.response.AdvertisingTypeDeliveryReportResponse;
 import com.internship.crm.report.dto.response.DeliveryMetricsResponse;
 import com.internship.crm.report.dto.response.DeliveryTrendPointResponse;
+import com.internship.crm.report.model.AdvertiserReportSortField;
+import com.internship.crm.report.model.ReportSortDirection;
 import com.internship.crm.report.service.DeliveryReportService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.entity.User;
@@ -151,6 +157,80 @@ class DeliveryReportSecurityMvcTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
         verify(deliveryReportService, never()).trend(any(), any());
+    }
+
+    @Test
+    @DisplayName("ADMIN 可以按指标排序并分页查询广告主汇总")
+    void adminCanQueryAdvertiserDimension() throws Exception {
+        authorize("admin-advertiser-report", user(1L, UserRole.ADMIN));
+        AdvertiserDeliveryReportResponse item = new AdvertiserDeliveryReportResponse(
+                7L, "示例广告主", metrics());
+        when(deliveryReportService.byAdvertiser(
+                any(), anyLong(), anyLong(), any(), any()))
+                .thenReturn(PageResponse.of(List.of(item), 1, 10, 1));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/by-advertiser")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-advertiser-report")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .param("sortBy", "CTR")
+                        .param("direction", "ASC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].advertiserId").value(7))
+                .andExpect(jsonPath("$.data.items[0].advertiserName").value("示例广告主"))
+                .andExpect(jsonPath("$.data.items[0].metrics.ctr").value(0.1000))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.total").value(1));
+        verify(deliveryReportService).byAdvertiser(
+                new DeliveryReportQuery(null, null, null, null),
+                1,
+                10,
+                AdvertiserReportSortField.CTR,
+                ReportSortDirection.ASC);
+    }
+
+    @Test
+    @DisplayName("OPERATOR 可以查询广告类型维度汇总")
+    void operatorCanQueryAdvertisingTypeDimension() throws Exception {
+        authorize("operator-type-report", user(2L, UserRole.OPERATOR));
+        AdvertisingTypeDeliveryReportResponse item =
+                new AdvertisingTypeDeliveryReportResponse(1L, "SEARCH", "搜索广告", metrics());
+        when(deliveryReportService.byAdvertisingType(any())).thenReturn(List.of(item));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/by-ad-type")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-type-report"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].advertisingTypeCode").value("SEARCH"))
+                .andExpect(jsonPath("$.data[0].advertisingTypeName").value("搜索广告"))
+                .andExpect(jsonPath("$.data[0].metrics.spend").value(200.00));
+    }
+
+    @Test
+    @DisplayName("非法广告主排序字段返回统一参数错误")
+    void invalidAdvertiserSortFieldIsRejected() throws Exception {
+        authorize("admin-invalid-sort", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/by-advertiser")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-invalid-sort")
+                        .param("sortBy", "DROP_TABLE"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+        verify(deliveryReportService, never()).byAdvertiser(
+                any(), anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    @DisplayName("广告主汇总分页大小超过上限时返回统一参数错误")
+    void oversizedAdvertiserPageIsRejected() throws Exception {
+        authorize("admin-oversized-page", user(1L, UserRole.ADMIN));
+
+        mockMvc.perform(get("/api/v1/reports/delivery/by-advertiser")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-oversized-page")
+                        .param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+        verify(deliveryReportService, never()).byAdvertiser(
+                any(), anyLong(), anyLong(), any(), any());
     }
 
     private DeliveryMetricsResponse metrics() {
