@@ -1,17 +1,21 @@
 package com.internship.crm.payment.controller;
 
+import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.payment.dto.request.MockPaymentCallbackRequest;
 import com.internship.crm.payment.dto.response.MockPaymentCallbackResponse;
+import com.internship.crm.payment.exception.PaymentErrorCode;
 import com.internship.crm.payment.service.MockPaymentCallbackService;
+import com.internship.crm.payment.service.PaymentCallbackSignatureService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,7 +58,21 @@ public class MockPaymentCallbackController {
                     description = "sha256=<timestamp + '.' + HTTP 原始请求体的 64 位十六进制 HMAC-SHA256>",
                     required = true)
             @RequestHeader(value = SIGNATURE_HEADER, required = false) String signature,
-            @RequestBody byte[] rawPayload) {
+            HttpServletRequest request) {
+        byte[] rawPayload = readPayload(request);
         return ApiResponse.success(callbackService.receive(timestamp, signature, rawPayload));
+    }
+
+    private byte[] readPayload(HttpServletRequest request) {
+        try {
+            byte[] payload = request.getInputStream().readNBytes(
+                    PaymentCallbackSignatureService.MAX_PAYLOAD_BYTES + 1);
+            if (payload.length > PaymentCallbackSignatureService.MAX_PAYLOAD_BYTES) {
+                throw new BusinessException(PaymentErrorCode.CALLBACK_PAYLOAD_INVALID);
+            }
+            return payload;
+        } catch (IOException exception) {
+            throw new BusinessException(PaymentErrorCode.CALLBACK_PAYLOAD_INVALID, exception);
+        }
     }
 }

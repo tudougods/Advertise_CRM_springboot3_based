@@ -200,7 +200,26 @@ public class MockPaymentCallbackService {
         if (!existing.getPayloadHash().equals(payloadHash)) {
             throw new BusinessException(PaymentErrorCode.CALLBACK_EVENT_CONFLICT);
         }
-        return response(existing, request.orderNo(), true);
+        if (existing.getCallbackStatus() == PaymentCallbackStatus.PROCESSED) {
+            return response(existing, request.orderNo(), true);
+        }
+        if (existing.getCallbackStatus() == PaymentCallbackStatus.REJECTED) {
+            throw new BusinessException(rejectedError(existing.getFailureReason()));
+        }
+        throw new BusinessException(PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT);
+    }
+
+    private PaymentErrorCode rejectedError(String failureReason) {
+        if (failureReason == null) {
+            return PaymentErrorCode.CALLBACK_EVENT_CONFLICT;
+        }
+        return switch (failureReason) {
+            case "PAYMENT_CALLBACK_ADVERTISER_MISMATCH" ->
+                    PaymentErrorCode.CALLBACK_ADVERTISER_MISMATCH;
+            case "PAYMENT_CALLBACK_AMOUNT_MISMATCH" -> PaymentErrorCode.CALLBACK_AMOUNT_MISMATCH;
+            case "PAYMENT_CALLBACK_PAYLOAD_INVALID" -> PaymentErrorCode.CALLBACK_PAYLOAD_INVALID;
+            default -> PaymentErrorCode.CALLBACK_EVENT_CONFLICT;
+        };
     }
 
     private MockPaymentCallbackResponse response(

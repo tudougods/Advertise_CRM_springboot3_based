@@ -2,6 +2,7 @@ package com.internship.crm.payment.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +20,7 @@ import com.internship.crm.payment.dto.response.MockPaymentCallbackResponse;
 import com.internship.crm.payment.entity.PaymentCallbackStatus;
 import com.internship.crm.payment.exception.PaymentErrorCode;
 import com.internship.crm.payment.service.MockPaymentCallbackService;
+import com.internship.crm.payment.service.PaymentCallbackSignatureService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.service.UserService;
 import java.time.OffsetDateTime;
@@ -71,7 +73,7 @@ class MockPaymentCallbackSecurityMvcTest {
                 .thenReturn(new MockPaymentCallbackResponse(
                         "evt-1",
                         "RCH-1",
-                        PaymentCallbackStatus.RECEIVED,
+                        PaymentCallbackStatus.PROCESSED,
                         false,
                         OffsetDateTime.parse("2026-08-27T01:02:03Z")));
 
@@ -83,8 +85,24 @@ class MockPaymentCallbackSecurityMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.eventId").value("evt-1"))
-                .andExpect(jsonPath("$.data.callbackStatus").value("RECEIVED"))
+                .andExpect(jsonPath("$.data.callbackStatus").value("PROCESSED"))
                 .andExpect(jsonPath("$.data.duplicate").value(false));
+    }
+
+    @Test
+    @DisplayName("超过 16 KiB 的回调在进入 Service 前被拒绝")
+    void oversizedCallbackIsRejectedBeforeService() throws Exception {
+        byte[] payload = new byte[PaymentCallbackSignatureService.MAX_PAYLOAD_BYTES + 1];
+
+        mockMvc.perform(post("/api/v1/payment-callbacks/mock")
+                        .header(MockPaymentCallbackController.TIMESTAMP_HEADER, "1787792523")
+                        .header(MockPaymentCallbackController.SIGNATURE_HEADER, "sha256=abc")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PAYMENT_CALLBACK_PAYLOAD_INVALID"));
+
+        verifyNoInteractions(callbackService);
     }
 
     @Test

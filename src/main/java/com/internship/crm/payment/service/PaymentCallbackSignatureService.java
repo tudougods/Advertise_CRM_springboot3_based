@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class PaymentCallbackSignatureService {
 
-    static final int MAX_PAYLOAD_BYTES = 16 * 1024;
+    public static final int MAX_PAYLOAD_BYTES = 16 * 1024;
     private static final String SIGNATURE_PREFIX = "sha256=";
     private static final int MINIMUM_KEY_BYTES = 32;
 

@@ -166,15 +166,85 @@ class MockPaymentCallbackPersistenceTest {
         byte[] payload = payload(eventId, order, advertiser.id() + 9999, "txn-mismatch");
 
         BusinessException exception = assertThrows(BusinessException.class, () -> receive(payload));
+        BusinessException retry = assertThrows(BusinessException.class, () -> receive(payload));
 
         assertAll(
                 () -> assertSame(PaymentErrorCode.CALLBACK_ADVERTISER_MISMATCH, exception.errorCode()),
+                () -> assertSame(PaymentErrorCode.CALLBACK_ADVERTISER_MISMATCH, retry.errorCode()),
                 () -> assertEquals("REJECTED", callbackStatus(eventId)),
                 () -> assertEquals(
                         PaymentErrorCode.CALLBACK_ADVERTISER_MISMATCH.code(),
                         failureReason(eventId)),
                 () -> assertEquals(RechargeOrderStatus.PENDING,
                         rechargeOrderService.findByOrderNo(order.orderNo()).status()));
+    }
+
+    @Test
+    @DisplayName("金额篡改返回冲突并保留 REJECTED 审计")
+    void amountMismatchDoesNotChangeFunds() throws Exception {
+        AdvertiserResponse advertiser = createAdvertiser();
+        RechargeOrderResponse order = createOrder(advertiser.id());
+        String eventId = "evt-" + UUID.randomUUID();
+        byte[] payload = objectMapper.writeValueAsBytes(new MockPaymentCallbackRequest(
+                eventId,
+                order.orderNo(),
+                advertiser.id(),
+                order.amount().add(new BigDecimal("0.01")),
+                MockPaymentOutcome.SUCCESS,
+                "txn-amount-mismatch"));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> receive(payload));
+
+        assertAll(
+                () -> assertSame(PaymentErrorCode.CALLBACK_AMOUNT_MISMATCH, exception.errorCode()),
+                () -> assertEquals("REJECTED", callbackStatus(eventId)),
+                () -> assertEquals(RechargeOrderStatus.PENDING,
+                        rechargeOrderService.findByOrderNo(order.orderNo()).status()),
+                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())),
+                () -> assertEquals(0L, transactionCount(advertiser.id())));
+    }
+
+    @Test
+    @DisplayName("回调订单不存在时返回 404 且不占用 eventId")
+    void missingOrderDoesNotCreateAudit() throws Exception {
+        AdvertiserResponse advertiser = createAdvertiser();
+        String eventId = "evt-" + UUID.randomUUID();
+        byte[] payload = objectMapper.writeValueAsBytes(new MockPaymentCallbackRequest(
+                eventId,
+                "RCH-MISSING-" + UUID.randomUUID(),
+                advertiser.id(),
+                new BigDecimal("250.00"),
+                MockPaymentOutcome.SUCCESS,
+                "txn-missing-order"));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> receive(payload));
+
+        assertAll(
+                () -> assertSame(PaymentErrorCode.ORDER_NOT_FOUND, exception.errorCode()),
+                () -> assertEquals(0L, callbackCount(eventId)),
+                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())));
+    }
+
+    @Test
+    @DisplayName("已有 RECEIVED 审计不会被误报为幂等成功")
+    void receivedAuditReturnsProcessingConflict() throws Exception {
+        AdvertiserResponse advertiser = createAdvertiser();
+        RechargeOrderResponse order = createOrder(advertiser.id());
+        String eventId = "evt-" + UUID.randomUUID();
+        byte[] payload = payload(eventId, order, advertiser.id(), "txn-received");
+        jdbcTemplate.update("""
+                INSERT INTO recharge_payment_callbacks (
+                    provider_event_id, recharge_order_id, callback_status, payload_hash, received_at
+                ) VALUES (?, ?, 'RECEIVED', ?, CURRENT_TIMESTAMP)
+                """, eventId, order.id(), signatureService.payloadHash(payload));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> receive(payload));
+
+        assertAll(
+                () -> assertSame(PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT, exception.errorCode()),
+                () -> assertEquals(RechargeOrderStatus.PENDING,
+                        rechargeOrderService.findByOrderNo(order.orderNo()).status()),
+                () -> assertEquals(new BigDecimal("0.00"), balance(advertiser.id())));
     }
 
     @Test
