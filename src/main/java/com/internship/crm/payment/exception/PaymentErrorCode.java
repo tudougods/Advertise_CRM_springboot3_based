@@ -26,7 +26,25 @@ public enum PaymentErrorCode implements ErrorCode {
     ORDER_UPDATE_CONFLICT(
             "PAYMENT_ORDER_UPDATE_CONFLICT",
             "充值订单状态更新冲突",
-            HttpStatus.CONFLICT);
+            HttpStatus.CONFLICT),
+    CALLBACK_CONFIGURATION_ERROR(
+            "PAYMENT_CALLBACK_CONFIGURATION_ERROR",
+            "支付回调验签配置不可用",
+            HttpStatus.INTERNAL_SERVER_ERROR),
+    CALLBACK_TIMESTAMP_INVALID(
+            "PAYMENT_CALLBACK_TIMESTAMP_INVALID", "支付回调时间戳不合法", HttpStatus.BAD_REQUEST),
+    CALLBACK_TIMESTAMP_EXPIRED(
+            "PAYMENT_CALLBACK_TIMESTAMP_EXPIRED", "支付回调已过期", HttpStatus.UNAUTHORIZED),
+    CALLBACK_SIGNATURE_INVALID(
+            "PAYMENT_CALLBACK_SIGNATURE_INVALID", "支付回调签名无效", HttpStatus.UNAUTHORIZED),
+    CALLBACK_PAYLOAD_INVALID(
+            "PAYMENT_CALLBACK_PAYLOAD_INVALID", "支付回调内容不合法", HttpStatus.BAD_REQUEST),
+    CALLBACK_EVENT_CONFLICT(
+            "PAYMENT_CALLBACK_EVENT_CONFLICT", "支付回调事件编号冲突", HttpStatus.CONFLICT),
+    CALLBACK_ADVERTISER_MISMATCH(
+            "PAYMENT_CALLBACK_ADVERTISER_MISMATCH", "支付回调广告主与订单不匹配", HttpStatus.CONFLICT),
+    CALLBACK_AMOUNT_MISMATCH(
+            "PAYMENT_CALLBACK_AMOUNT_MISMATCH", "支付回调金额与订单不匹配", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;
