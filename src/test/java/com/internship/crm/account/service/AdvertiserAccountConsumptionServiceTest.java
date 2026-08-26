@@ -165,7 +165,8 @@ class AdvertiserAccountConsumptionServiceTest {
         AdvertiserAccount account = account(8L, 7L, "30.00");
         AdvertiserAccountTransaction committedTransaction = new AdvertiserAccountTransaction();
         when(transactionMapper.findByBusinessNo("CONSUMPTION-003"))
-                .thenReturn(Optional.empty(), Optional.of(committedTransaction));
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(committedTransaction));
         when(accountMapper.findByAdvertiserId(7L)).thenReturn(Optional.of(account));
         when(accountMapper.debitIfBalanceSufficient(8L, new BigDecimal("30.00")))
                 .thenReturn(null);
