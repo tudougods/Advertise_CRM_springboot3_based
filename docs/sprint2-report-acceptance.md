@@ -76,17 +76,19 @@ MockMvc 和 OpenAPI 自动化测试确认：
 
 验证脚本：`scripts/sprint2-report-explain.sql`。
 
-脚本在事务内创建 20 个临时广告主和 60000 条投放记录，刷新统计信息后执行真实查询计划，最后 `ROLLBACK` 并重新 `ANALYZE`。演示数据不会保留在数据库中。
+脚本在事务内创建 20 个临时广告主和 60000 条投放记录，刷新统计信息后执行真实查询计划，最后 `ROLLBACK` 并重新 `ANALYZE`。查询使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构；广告主分页同时验证 COUNT 和数据查询。演示数据不会保留在数据库中。
 
 本机 PostgreSQL 16 验证摘要：
 
 | 查询场景 | 主要执行节点 | 命中索引 | 实际执行时间 |
 | --- | --- | --- | ---: |
-| 广告主 + 日期 + 广告类型总览 | `Bitmap Heap Scan` | `idx_advertising_delivery_advertiser_date` | 约 0.48 ms |
-| 31 天日趋势 | `Bitmap Heap Scan` + `HashAggregate` | `idx_advertising_delivery_record_date` | 约 1.58 ms |
-| 广告类型 + 日期的广告主汇总 | `Bitmap Heap Scan` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.63 ms |
+| 广告主 + 日期 + 广告类型总览 | `Nested Loop` + `Bitmap Heap Scan` | `idx_advertising_delivery_advertiser_date` | 约 0.21 ms |
+| 31 天日趋势 | `Hash Join` + `HashAggregate` | `idx_advertising_delivery_record_date` | 约 2.01 ms |
+| 广告主分页 COUNT | `Nested Loop` + `Bitmap Heap Scan` | `idx_advertising_delivery_type_date` | 约 0.33 ms |
+| 广告主维度分页 | `Merge Join` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.68 ms |
+| 广告类型维度 | `Nested Loop` + `HashAggregate` | `idx_advertising_delivery_advertiser_date` | 约 0.25 ms |
 
-执行时间仅表示本机固定数据规模下的结果，不作为生产 SLA。三个主要访问模式都使用了与过滤前缀匹配的既有索引，因此板块 C 不新增 `V8` 索引迁移。小数据量下 PostgreSQL 选择顺序扫描仍属正常行为。
+执行时间仅表示本机固定数据规模下的结果，不作为生产 SLA。四类接口及分页 COUNT 都使用了与过滤前缀匹配的既有索引，因此板块 C 不新增报表专用索引。`V8` 是充值账户一致性迁移，与报表索引无关；小数据量下 PostgreSQL 选择顺序扫描仍属正常行为。
 
 手动复现命令：
 
@@ -104,6 +106,6 @@ psql -h localhost -p 15432 -U crm_user -d advertiser_crm -f scripts/sprint2-repo
 .\mvnw.cmd test
 ```
 
-验收结果：273 项测试通过，0 失败，0 错误，0 跳过。其中报表测试覆盖查询规范化、统一指标、四类接口、RBAC、OpenAPI、固定数据集 SQL、日期边界、除零、筛选、排序和分页。
+验收结果：274 项测试通过，0 失败，0 错误，0 跳过。其中报表测试覆盖查询规范化、统一指标、四类接口、RBAC、OpenAPI、固定数据集 SQL、日期边界、除零、筛选、排序和分页。
 
 板块 C 已达到完成标准：四类报表可通过 Swagger 演示，固定数据集结果与人工计算一致，日期使用 `DATE/LocalDate`，并留下可重复执行的 SQL 性能证据。

@@ -52,10 +52,19 @@ ANALYZE advertising_delivery_records;
 
 \echo '=== OVERVIEW: advertiser + date + advertising type ==='
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
-SELECT SUM(record.impressions),
-       SUM(record.clicks),
-       SUM(record.conversions),
-       SUM(record.spend)
+SELECT COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+       COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+       COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+       ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+       COALESCE(ROUND(
+           SUM(record.clicks)::NUMERIC / NULLIF(SUM(record.impressions), 0), 4
+       ), 0.0000) AS ctr,
+       COALESCE(ROUND(
+           SUM(record.conversions)::NUMERIC / NULLIF(SUM(record.clicks), 0), 4
+       ), 0.0000) AS cvr,
+       COALESCE(ROUND(
+           SUM(record.spend) / NULLIF(SUM(record.clicks), 0), 2
+       ), 0.00) AS cpc
 FROM advertising_delivery_records record
 JOIN advertising_types advertising_type
   ON advertising_type.id = record.advertising_type_id
@@ -66,29 +75,89 @@ WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
 \echo '=== TREND: date range ==='
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
 SELECT DATE_TRUNC('day', record.record_date::TIMESTAMP)::DATE AS period_start,
-       SUM(record.impressions),
-       SUM(record.clicks),
-       SUM(record.conversions),
-       SUM(record.spend)
-FROM advertising_delivery_records record
-WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
-GROUP BY 1
-ORDER BY 1;
-
-\echo '=== BY ADVERTISER: advertising type + date range ==='
-EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
-SELECT record.advertiser_id,
-       SUM(record.impressions),
-       SUM(record.clicks),
-       SUM(record.conversions),
-       SUM(record.spend)
+       COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+       COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+       COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+       ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+       COALESCE(ROUND(
+           SUM(record.clicks)::NUMERIC / NULLIF(SUM(record.impressions), 0), 4
+       ), 0.0000) AS ctr,
+       COALESCE(ROUND(
+           SUM(record.conversions)::NUMERIC / NULLIF(SUM(record.clicks), 0), 4
+       ), 0.0000) AS cvr,
+       COALESCE(ROUND(
+           SUM(record.spend) / NULLIF(SUM(record.clicks), 0), 2
+       ), 0.00) AS cpc
 FROM advertising_delivery_records record
 JOIN advertising_types advertising_type
   ON advertising_type.id = record.advertising_type_id
 WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
+GROUP BY 1
+ORDER BY 1;
+
+\echo '=== BY ADVERTISER COUNT: advertising type + date range ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT COUNT(DISTINCT record.advertiser_id)
+FROM advertising_delivery_records record
+JOIN advertising_types advertising_type
+  ON advertising_type.id = record.advertising_type_id
+WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
+  AND UPPER(advertising_type.code) = 'SEARCH';
+
+\echo '=== BY ADVERTISER PAGE: advertising type + date range ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT advertiser.id AS advertiser_id,
+       advertiser.name AS advertiser_name,
+       COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+       COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+       COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+       ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+       COALESCE(ROUND(
+           SUM(record.clicks)::NUMERIC / NULLIF(SUM(record.impressions), 0), 4
+       ), 0.0000) AS ctr,
+       COALESCE(ROUND(
+           SUM(record.conversions)::NUMERIC / NULLIF(SUM(record.clicks), 0), 4
+       ), 0.0000) AS cvr,
+       COALESCE(ROUND(
+           SUM(record.spend) / NULLIF(SUM(record.clicks), 0), 2
+       ), 0.00) AS cpc
+FROM advertising_delivery_records record
+JOIN advertisers advertiser
+  ON advertiser.id = record.advertiser_id
+JOIN advertising_types advertising_type
+  ON advertising_type.id = record.advertising_type_id
+WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
   AND UPPER(advertising_type.code) = 'SEARCH'
-GROUP BY record.advertiser_id
-ORDER BY SUM(record.spend) DESC, record.advertiser_id ASC;
+GROUP BY advertiser.id, advertiser.name
+ORDER BY spend DESC, advertiser.id ASC
+LIMIT 20
+OFFSET 0;
+
+\echo '=== BY ADVERTISING TYPE: advertiser + date range ==='
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT advertising_type.id AS advertising_type_id,
+       advertising_type.code AS advertising_type_code,
+       advertising_type.name AS advertising_type_name,
+       COALESCE(SUM(record.impressions), 0)::BIGINT AS impressions,
+       COALESCE(SUM(record.clicks), 0)::BIGINT AS clicks,
+       COALESCE(SUM(record.conversions), 0)::BIGINT AS conversions,
+       ROUND(COALESCE(SUM(record.spend), 0), 2) AS spend,
+       COALESCE(ROUND(
+           SUM(record.clicks)::NUMERIC / NULLIF(SUM(record.impressions), 0), 4
+       ), 0.0000) AS ctr,
+       COALESCE(ROUND(
+           SUM(record.conversions)::NUMERIC / NULLIF(SUM(record.clicks), 0), 4
+       ), 0.0000) AS cvr,
+       COALESCE(ROUND(
+           SUM(record.spend) / NULLIF(SUM(record.clicks), 0), 2
+       ), 0.00) AS cpc
+FROM advertising_delivery_records record
+JOIN advertising_types advertising_type
+  ON advertising_type.id = record.advertising_type_id
+WHERE record.record_date BETWEEN DATE '2026-07-01' AND DATE '2026-07-31'
+  AND record.advertiser_id = :target_advertiser_id
+GROUP BY advertising_type.id, advertising_type.code, advertising_type.name
+ORDER BY spend DESC, advertising_type.code ASC;
 
 ROLLBACK;
 

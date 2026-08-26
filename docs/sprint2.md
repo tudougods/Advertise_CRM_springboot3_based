@@ -104,6 +104,7 @@ Sprint 完成时应满足：
 - `V5__create_recharge_payment_tables.sql`
 - `V6__protect_delivery_account_consistency.sql`（板块 B review 后补充账户流水与投放记录的广告主一致性保护）
 - `V7__serialize_delivery_account_consistency.sql`（为流水关联与投放修正增加统一行锁顺序）
+- `V8__protect_recharge_account_consistency.sql`（整体 review 后补充充值订单与资金流水的账户一致性保护）
 - 后续如需补充约束或索引，继续创建新的迁移，不回改已执行迁移。
 
 ### 核心字段约定
