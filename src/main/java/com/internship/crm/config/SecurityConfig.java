@@ -71,6 +71,10 @@ public class SecurityConfig {
                     .hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/reports/**")
                     .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/payment-orders/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
