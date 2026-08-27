@@ -496,7 +496,7 @@ FOR UPDATE;
 
 - `scripts/sprint2-report-explain.sql` 在事务内生成 20 个广告主和 60000 条投放记录。
 - `scripts/sprint2-transaction-explain.sql` 在事务内生成 5000 个广告主账户，以及各 20000 条资金流水、充值订单和回调审计。
-- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。
+- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。由于 PostgreSQL identity sequence 不随事务回滚，脚本会拒绝在默认开发库 `advertiser_crm` 上执行，复验时必须使用可丢弃的独立验收库。
 
 | 访问模式 | 实际索引 | 执行时间 |
 | --- | --- | ---: |
