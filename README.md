@@ -29,16 +29,16 @@ docker compose up -d postgres pgadmin
 
 pgAdmin 登录凭据只用于进入管理页面；PostgreSQL 凭据用于连接业务数据库，两者相互独立。首次创建 pgAdmin 数据卷后，修改环境变量不会自动重置已有的 pgAdmin 管理员密码。
 
-首次复制 `.env.example` 后，还需要为本机生成 JWT 签名密钥：
+首次复制 `.env.example` 后，还需要分别生成 JWT 签名密钥和模拟支付回调密钥。连续运行以下命令两次：
 
 ```powershell
 [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 ```
 
-把命令生成的值填入本机 `.env` 的 `JWT_SECRET`。该值不得提交到 Git；不同开发环境应使用不同密钥。然后启动应用：
+把两次生成的不同值分别填入本机 `.env` 的 `JWT_SECRET` 和 `MOCK_PAYMENT_CALLBACK_SECRET`。密钥不得提交到 Git；不同用途和不同开发环境均应使用不同密钥。业务日期默认使用 UTC 计算；如项目需要固定到其他业务地区，可以通过 `.env` 中的 `BUSINESS_TIME_ZONE` 设置合法的 IANA 时区，例如 `Australia/Sydney`。然后以 `local` Profile 启动应用，启用仅限本地的模拟支付接口：
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd "-Dspring-boot.run.arguments=--spring.profiles.active=local" spring-boot:run
 ```
 
 应用连接数据库时，Flyway 会自动执行 `src/main/resources/db/migration` 中尚未执行的迁移。首次初始化完成后，可以检查数据表和迁移记录：
@@ -54,7 +54,7 @@ docker compose exec postgres psql -U crm_user -d advertiser_crm -c "SELECT versi
 .\scripts\test.cmd
 ```
 
-每项测试完成后会立即分行输出结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
+测试通过 Testcontainers 自动启动一次性 PostgreSQL 16，要求本机 Docker 正在运行，但不会读写日常开发数据库 `advertiser_crm`。每项测试完成后会立即分行输出结果；测试失败时会输出完整 Maven 和 Spring 日志，便于排查问题。直接运行 `.\mvnw.cmd test` 时仍会显示完整构建过程。
 
 验证地址：
 
@@ -123,6 +123,17 @@ docker compose down
 docker compose --profile full up --build
 ```
 
+## Sprint 2 投放统计报表
+
+当前已实现投放明细和四类统计报表：
+
+- `GET /api/v1/reports/delivery/overview`：指标总览。
+- `GET /api/v1/reports/delivery/trend`：日、周、月趋势。
+- `GET /api/v1/reports/delivery/by-advertiser`：广告主维度排序和分页。
+- `GET /api/v1/reports/delivery/by-ad-type`：广告类型维度汇总。
+
+`ADMIN`、`OPERATOR` 均可通过 Swagger 查询。指标口径、固定数据集结果和 `EXPLAIN ANALYZE` 证据见 [Sprint 2 报表验收记录](docs/sprint2-C-report-acceptance.md)。
+
 ## API 公共约定
 
 业务接口显式返回统一的 `ApiResponse<T>`，包含 `success`、`code`、`message`、`data`、`timestamp` 和 `requestId`。公共错误码统一使用 `COMMON_*` 前缀，后续业务模块使用各自模块前缀。
@@ -171,3 +182,8 @@ common/
 
 - [Sprint 1 开发流程](docs/spring1.md)
 - [Sprint 1 数据库设计](docs/database-design.md)
+- [Sprint 2 开发计划](docs/sprint2.md)
+- [Sprint 2 数据库设计](docs/sprint2-A-database-design.md)
+- [Sprint 2 报表验收记录](docs/sprint2-C-report-acceptance.md)
+- [Sprint 2 完整 Demo 验收记录](docs/sprint2-F-demo.md)
+- [Sprint 2 最终测试报告](docs/sprint2-F-test-report.md)

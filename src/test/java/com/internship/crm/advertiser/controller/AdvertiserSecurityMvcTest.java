@@ -2,6 +2,7 @@ package com.internship.crm.advertiser.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,12 +20,14 @@ import com.internship.crm.advertiser.dto.request.CreateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserRequest;
 import com.internship.crm.advertiser.dto.request.UpdateAdvertiserCategoryRequest;
 import com.internship.crm.advertiser.entity.AdvertiserStatus;
+import com.internship.crm.advertiser.exception.AdvertiserErrorCode;
 import com.internship.crm.advertiser.service.AdvertiserCategoryService;
 import com.internship.crm.advertiser.service.AdvertiserService;
 import com.internship.crm.auth.security.JwtAuthenticationFilter;
 import com.internship.crm.auth.security.RestAccessDeniedHandler;
 import com.internship.crm.auth.security.RestAuthenticationEntryPoint;
 import com.internship.crm.auth.token.JwtTokenService;
+import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.common.exception.GlobalExceptionHandler;
 import com.internship.crm.common.filter.RequestLoggingFilter;
 import com.internship.crm.common.response.PageResponse;
@@ -198,6 +201,20 @@ class AdvertiserSecurityMvcTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(advertiserService).delete(13L);
+    }
+
+    @Test
+    @DisplayName("存在业务历史的广告主删除返回明确 409")
+    void advertiserWithBusinessHistoryReturnsConflict() throws Exception {
+        authorize("admin-delete-history", user(1L, UserRole.ADMIN));
+        doThrow(new BusinessException(AdvertiserErrorCode.ADVERTISER_HAS_BUSINESS_DATA))
+                .when(advertiserService).delete(13L);
+
+        mockMvc.perform(delete("/api/v1/advertisers/13")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-delete-history"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("ADVERTISER_HAS_BUSINESS_DATA"));
     }
 
     @Test

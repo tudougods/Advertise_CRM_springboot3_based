@@ -26,6 +26,12 @@ spring:
     default-property-inclusion: non_null
     time-zone: UTC
 
+app:
+  business-zone: ${BUSINESS_TIME_ZONE:UTC}
+  payment:
+    callback-secret: ${MOCK_PAYMENT_CALLBACK_SECRET:}
+    callback-tolerance-seconds: ${MOCK_PAYMENT_CALLBACK_TOLERANCE_SECONDS:300}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

@@ -21,6 +21,7 @@ public class SecurityConfig {
         "/actuator/health/**",
         "/api/v1/auth/register",
         "/api/v1/auth/login",
+        "/api/v1/payment-callbacks/mock",
         "/v3/api-docs/**",
         "/swagger-ui.html",
         "/swagger-ui/**"
@@ -48,11 +49,35 @@ public class SecurityConfig {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers("/api/v1/users/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/v1/advertisers/*/account/consumptions")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertisers/*/account/transactions")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertisers/*/account")
+                    .hasAnyRole("ADMIN", "OPERATOR")
                 .requestMatchers(HttpMethod.GET, "/api/v1/advertisers/**").hasAnyRole("ADMIN", "OPERATOR")
                 .requestMatchers("/api/v1/advertisers/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/advertiser-categories/**")
                     .hasAnyRole("ADMIN", "OPERATOR")
                 .requestMatchers("/api/v1/advertiser-categories/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/advertising-types/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.POST, "/api/v1/delivery-records")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.GET, "/api/v1/delivery-records/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/delivery-records/**")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/delivery-records/**")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/reports/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/v1/payment-orders/*/simulate")
+                    .hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/payment-orders/**")
+                    .hasAnyRole("ADMIN", "OPERATOR")
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
