@@ -1,6 +1,15 @@
 \set ON_ERROR_STOP on
 \set demo_prefix 'REPORT-EXPLAIN-C5'
 
+-- Identity sequences are not transactional, so use a disposable acceptance database.
+DO $$
+BEGIN
+    IF current_database() = 'advertiser_crm' THEN
+        RAISE EXCEPTION 'Refusing to run performance fixtures in the shared advertiser_crm database';
+    END IF;
+END
+$$;
+
 BEGIN;
 
 INSERT INTO advertisers (name, status, created_at, updated_at)

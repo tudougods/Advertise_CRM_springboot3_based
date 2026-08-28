@@ -1,4 +1,4 @@
-# Advertiser CRM Sprint 2 数据库设计
+# Advertiser CRM Sprint 2 数据库设计 （板块A）
 
 > 状态：Sprint 2 板块 A～F 已实现并完成验收（2026-08-27）
 >
@@ -488,7 +488,7 @@ FOR UPDATE;
 | 广告主维度分页 | `Merge Join` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.68 ms |
 | 广告类型维度 | `Nested Loop` + `HashAggregate` | `idx_advertising_delivery_advertiser_date` | 约 0.25 ms |
 
-脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
+脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-C-report-acceptance.md`。
 
 ### 11.2 板块 F 高频查询复验
 
@@ -496,7 +496,7 @@ FOR UPDATE;
 
 - `scripts/sprint2-report-explain.sql` 在事务内生成 20 个广告主和 60000 条投放记录。
 - `scripts/sprint2-transaction-explain.sql` 在事务内生成 5000 个广告主账户，以及各 20000 条资金流水、充值订单和回调审计。
-- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。
+- 两个脚本均在结束时回滚全部模拟数据，并重新执行 `ANALYZE` 恢复空验收库的统计信息。由于 PostgreSQL identity sequence 不随事务回滚，脚本会拒绝在默认开发库 `advertiser_crm` 上执行，复验时必须使用可丢弃的独立验收库。
 
 | 访问模式 | 实际索引 | 执行时间 |
 | --- | --- | ---: |

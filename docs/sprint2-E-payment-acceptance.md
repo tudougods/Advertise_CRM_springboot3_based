@@ -69,4 +69,4 @@
 | E5 | `1ee9bb8` | 权限、OpenAPI 与验收收口 |
 | E review | `ff804b4` | 请求边界、重放语义、V10 约束与测试补强 |
 
-板块 F 已完成执行计划与索引验证、[完整 Demo](sprint2-demo.md)、[最终测试报告](sprint2-test-report.md)和 Sprint 2 总验收，未重复增加业务或演示代码。
+板块 F 已完成执行计划与索引验证、[完整 Demo](sprint2-F-demo.md)、[最终测试报告](sprint2-F-test-report.md)和 Sprint 2 总验收，未重复增加业务或演示代码。

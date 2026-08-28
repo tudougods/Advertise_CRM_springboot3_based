@@ -80,7 +80,7 @@ Sprint 完成时应满足：
 
 ## 4.1 板块 A：数据库与公共设计
 
-> 当前状态：已完成。`V3`～`V5`、Java 持久层、核心 SQL 说明和空库验收均已落地，详见 `docs/sprint2-database-design.md`。
+> 当前状态：已完成。`V3`～`V5`、Java 持久层、核心 SQL 说明和空库验收均已落地，详见 `docs/sprint2-A-database-design.md`。
 
 ### 目标
 
@@ -134,7 +134,7 @@ Sprint 完成时应满足：
 - ✅ 编写 `V3`～`V5` Flyway 迁移。
 - ✅ 为状态、金额、唯一性和外键添加数据库约束。
 - ✅ 创建实体、枚举和 Mapper 基础结构。
-- ✅ 在 `docs/sprint2-database-design.md` 记录表设计、核心 SQL 和索引理由。
+- ✅ 在 `docs/sprint2-A-database-design.md` 记录表设计、核心 SQL 和索引理由。
 - ✅ 验证空库迁移和从现有 `V2` 升级两种路径。
 
 ### 完成标准
@@ -145,7 +145,7 @@ Sprint 完成时应满足：
 
 ## 4.2 板块 B：广告投放数据模块 `delivery`
 
-> 当前状态：已完成。广告类型查询、投放数据录入、组合筛选分页、详情、修正、受保护删除、接口权限和三层测试均已落地，详见 `docs/sprint2-delivery-acceptance.md`。
+> 当前状态：已完成。广告类型查询、投放数据录入、组合筛选分页、详情、修正、受保护删除、接口权限和三层测试均已落地，详见 `docs/sprint2-B-delivery-acceptance.md`。
 
 ### 目标
 
@@ -260,7 +260,7 @@ delivery/
 
 ## 4.4 板块 D：账户与资金流水模块 `account`
 
-> 当前状态：账户余额查询、原子消费、资金流水分页、并发保护、RBAC、OpenAPI 和三层测试均已完成。充值入账由板块 E 的模拟支付回调驱动，详见 `docs/sprint2-account-acceptance.md`。
+> 当前状态：账户余额查询、原子消费、资金流水分页、并发保护、RBAC、OpenAPI 和三层测试均已完成。充值入账由板块 E 的模拟支付回调驱动，详见 `docs/sprint2-D-account-acceptance.md`。
 
 ### 目标
 
@@ -301,7 +301,7 @@ delivery/
 
 ## 4.5 板块 E：模拟支付与回调模块 `payment`
 
-> 当前状态：E1～E5 已完成。订单、状态机、本地模拟、HMAC 回调、审计、原子充值、并发幂等、RBAC 和 OpenAPI 均已通过自动化验收，详见 `docs/sprint2-payment-acceptance.md`。
+> 当前状态：E1～E5 已完成。订单、状态机、本地模拟、HMAC 回调、审计、原子充值、并发幂等、RBAC 和 OpenAPI 均已通过自动化验收，详见 `docs/sprint2-E-payment-acceptance.md`。
 
 ### 目标
 
@@ -353,7 +353,7 @@ PENDING -> CLOSED
 
 ## 4.6 板块 F：性能、测试、文档与 Demo
 
-> 当前状态：F1～F3 已完成。最终查询计划复验、真实 HTTP 全流程 Demo、390 项全量回归和 Sprint 2 总验收均已通过，详见 `docs/sprint2-database-design.md`、`docs/sprint2-demo.md` 和 `docs/sprint2-test-report.md`。
+> 当前状态：F1～F3 已完成。最终查询计划复验、真实 HTTP 全流程 Demo、390 项全量回归和 Sprint 2 总验收均已通过，详见 `docs/sprint2-A-database-design.md`、`docs/sprint2-F-demo.md` 和 `docs/sprint2-F-test-report.md`。
 
 ### 索引计划
 
@@ -426,9 +426,9 @@ CREATE UNIQUE INDEX uk_payment_callbacks_event_id
 ### 产出文档
 
 - `docs/sprint2.md`：本开发计划。
-- `docs/sprint2-database-design.md`：表结构、约束、核心 SQL、索引和执行计划说明。
-- `docs/sprint2-demo.md`：初始化数据、Swagger 演示步骤和预期结果。
-- `docs/sprint2-test-report.md`：测试数量、覆盖场景、结果和已知限制。
+- `docs/sprint2-A-database-design.md`：表结构、约束、核心 SQL、索引和执行计划说明。
+- `docs/sprint2-F-demo.md`：初始化数据、Swagger 演示步骤和预期结果。
+- `docs/sprint2-F-test-report.md`：测试数量、覆盖场景、结果和已知限制。
 
 ## 5. 建议开发顺序和 5 日节奏
 
@@ -503,8 +503,8 @@ main
 | 模拟支付、回调逻辑 | 板块 E |
 | 索引和高频接口优化 | 板块 F |
 | 数据模块 + 账户模块代码 | `delivery`、`report`、`account`、`payment` |
-| 核心 SQL 设计说明 | `docs/sprint2-database-design.md` |
-| 数据统计 Demo 展示 | `docs/sprint2-demo.md` 和 Swagger 演示 |
+| 核心 SQL 设计说明 | `docs/sprint2-A-database-design.md` |
+| 数据统计 Demo 展示 | `docs/sprint2-F-demo.md` 和 Swagger 演示 |
 
 ## 9. 主要风险与处理方式
 
