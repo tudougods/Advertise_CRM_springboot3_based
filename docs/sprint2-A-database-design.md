@@ -1,4 +1,4 @@
-# Advertiser CRM Sprint 2 数据库设计
+# Advertiser CRM Sprint 2 数据库设计 （板块A）
 
 > 状态：Sprint 2 板块 A～F 已实现并完成验收（2026-08-27）
 >
@@ -488,7 +488,7 @@ FOR UPDATE;
 | 广告主维度分页 | `Merge Join` + `GroupAggregate` | `idx_advertising_delivery_type_date` | 约 0.68 ms |
 | 广告类型维度 | `Nested Loop` + `HashAggregate` | `idx_advertising_delivery_advertiser_date` | 约 0.25 ms |
 
-脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-report-acceptance.md`。
+脚本现已使用与生产 Mapper 一致的 JOIN、指标公式、分组、排序和分页结构。现有三个投放查询索引都与实际接口过滤前缀匹配，因此没有新增报表专用索引；`V8` 仅用于修复充值账户一致性。完整验收口径、固定数据集结果和复现方式见 `docs/sprint2-C-report-acceptance.md`。
 
 ### 11.2 板块 F 高频查询复验
 

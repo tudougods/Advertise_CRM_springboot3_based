@@ -66,7 +66,7 @@ Surefire XML 按业务模块汇总如下：
 | F2 | 独立数据库上的真实 HTTP 全流程 Demo 与数据库交叉核对 | 通过 |
 | F3 | 390 项全量回归、文档一致性和 Sprint 2 总验收 | 通过 |
 
-F1 的查询计划与索引证据见 [Sprint 2 数据库设计](sprint2-database-design.md#112-板块-f-高频查询复验)，F2 的接口步骤和结果见 [Sprint 2 完整 Demo 验收记录](sprint2-demo.md)。
+F1 的查询计划与索引证据见 [Sprint 2 数据库设计](sprint2-A-database-design.md#112-板块-f-高频查询复验)，F2 的接口步骤和结果见 [Sprint 2 完整 Demo 验收记录](sprint2-F-demo.md)。
 
 ## 4. 数据与环境隔离
 

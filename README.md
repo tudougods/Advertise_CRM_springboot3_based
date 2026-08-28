@@ -132,7 +132,7 @@ docker compose --profile full up --build
 - `GET /api/v1/reports/delivery/by-advertiser`：广告主维度排序和分页。
 - `GET /api/v1/reports/delivery/by-ad-type`：广告类型维度汇总。
 
-`ADMIN`、`OPERATOR` 均可通过 Swagger 查询。指标口径、固定数据集结果和 `EXPLAIN ANALYZE` 证据见 [Sprint 2 报表验收记录](docs/sprint2-report-acceptance.md)。
+`ADMIN`、`OPERATOR` 均可通过 Swagger 查询。指标口径、固定数据集结果和 `EXPLAIN ANALYZE` 证据见 [Sprint 2 报表验收记录](docs/sprint2-C-report-acceptance.md)。
 
 ## API 公共约定
 
@@ -183,7 +183,7 @@ common/
 - [Sprint 1 开发流程](docs/spring1.md)
 - [Sprint 1 数据库设计](docs/database-design.md)
 - [Sprint 2 开发计划](docs/sprint2.md)
-- [Sprint 2 数据库设计](docs/sprint2-database-design.md)
-- [Sprint 2 报表验收记录](docs/sprint2-report-acceptance.md)
-- [Sprint 2 完整 Demo 验收记录](docs/sprint2-demo.md)
-- [Sprint 2 最终测试报告](docs/sprint2-test-report.md)
+- [Sprint 2 数据库设计](docs/sprint2-A-database-design.md)
+- [Sprint 2 报表验收记录](docs/sprint2-C-report-acceptance.md)
+- [Sprint 2 完整 Demo 验收记录](docs/sprint2-F-demo.md)
+- [Sprint 2 最终测试报告](docs/sprint2-F-test-report.md)
