@@ -85,6 +85,13 @@ Sprint 3 分为 A、B、C、D 四个板块。每个板块对应明确的现有�
 | C | `auth`、`user`、`account`、`payment` | 认证权限、账户交易、支付回调和一致性完善 | 安全与交易模块修复、幂等和并发测试 |
 | D | 全项目、`README`、`docs`、测试与部署配置 | 代码整理、全量回归、部署说明、总结与复盘 | 测试报告、README、系统总结与优化报告 |
 
+提交数量不是验收指标。本计划按以下原则决定是否创建 Commit：
+
+- 同一问题原因、同一模块和对应测试放在一个提交中。
+- 实现、测试及与该实现直接相关的接口文档一起提交，不机械拆成三个提交。
+- 单纯 Review 后若没有发现问题，只在板块验收记录中写明结论，不制造空提交或无意义重构。
+- 只有能够独立回滚、独立验证的修改才单独提交；最终实际 Commit 数可以少于计划数。
+
 ### 4.1 板块 A：公共基础与工程规范模块
 
 > 对应模块：`common`、`config`
@@ -107,29 +114,23 @@ Sprint 3 分为 A、B、C、D 四个板块。每个板块对应明确的现有�
 
 #### 可独立提交的小任务
 
-板块 A 建议拆为 A1～A7。每个提交同时包含对应实现和测试，保证该提交可以独立编译、独立验证；不要先集中改完代码，再用一个单独提交补全部测试。
+板块 A 最多拆为 3 个提交。公共响应、错误码、异常转换和参数校验共同组成一套 API 失败契约，因此合并处理；验收记录随最后一个公共配置提交一起完成，不再单独创建验收 Commit。
 
 | 编号 | 小任务 | 主要文件范围 | 单独验收方式 | 建议 Commit |
 | --- | --- | --- | --- | --- |
-| A1 | 统一成功响应与分页结构 | `common/response/ApiResponse.java`、`PageResponse.java` 及其测试 | 验证成功/无数据/分页边界、时间戳和 Request ID | `refactor(common): standardize API response models` |
-| A2 | 统一错误码与业务异常契约 | `ErrorCode.java`、`CommonErrorCode.java`、`BusinessException.java`、`RateLimitExceededException.java` 及其测试 | 验证错误码、HTTP 状态、消息和附加数据映射 | `refactor(common): unify error code contracts` |
-| A3 | 完善参数校验与全局异常处理 | `GlobalExceptionHandler.java`、`FieldValidationError.java`、公共 MVC 测试控制器及测试 | 验证非法 JSON、字段校验、类型转换、路径/查询参数、业务冲突和未知异常 | `fix(common): complete validation exception handling` |
-| A4 | 完善 Request ID 与请求日志 | `RequestIdContext.java`、`RequestLoggingFilter.java` 及其测试 | 验证 ID 生成/透传/清理、响应头、状态、耗时、日志级别和敏感参数过滤 | `refactor(logging): standardize request tracing` |
-| A5 | 整理公共运行配置 | `ApplicationTimeConfig.java`、`MybatisPlusConfig.java`、配置文件及对应测试 | 验证合法/非法时区、分页上限、不同 Profile 的日志和公共配置 | `refactor(config): harden shared runtime configuration` |
-| A6 | 统一 OpenAPI 公共定义 | `OpenApiConfig.java`、安全方案定义、公共响应 Schema 和 OpenAPI 测试 | 检查 Swagger 标题、JWT Bearer、公共模型及主要错误响应 | `docs(openapi): align shared API contracts` |
-| A7 | 板块 A 回归与验收记录 | A1～A6 涉及的测试、`docs/sprint3-A-common-acceptance.md` | 运行公共模块专项测试和全量测试，记录发现、修改、结果及限制 | `test(sprint3): record module A acceptance` |
+| A1 | 统一 API 响应与异常契约 | `common/response`、`common/exception` 及公共 MVC 测试 | 验证成功/分页响应、字段校验、类型转换、非法 JSON、业务异常和未知异常 | `fix(common): standardize API error handling` |
+| A2 | 完善 Request ID 与请求日志 | `RequestIdContext.java`、`RequestLoggingFilter.java` 及其测试 | 验证 ID 生成/透传/清理、响应头、状态、耗时、日志级别和敏感信息保护 | `refactor(logging): standardize request tracing` |
+| A3 | 整理公共配置、OpenAPI 与板块验收 | `config`、配置文件、相关测试、`docs/sprint3-A-common-acceptance.md` | 验证时区、分页、Profile、JWT Bearer、公共 Schema，并运行板块回归 | `refactor(config): finalize common foundation` |
 
-建议执行顺序为 A1 → A2 → A3 → A4 → A5 → A6 → A7。A1～A3 先固定响应和异常契约；A4、A5 在契约稳定后整理请求上下文及配置；A6 最后让 OpenAPI 与实际行为对齐；A7 只做总回归和验收归档。
+建议执行顺序为 A1 → A2 → A3。若 A1 或 A2 没有实际修改，则跳过该代码提交，并在 A3 的验收记录中说明。
 
 #### 各提交的边界
 
-- A1 只处理成功响应和分页模型，不同时修改业务 Controller。
-- A2 只固定错误码与异常对象；具体异常捕获和响应转换放在 A3。
-- A3 可以补充用于触发异常的测试 Controller，但不修改真实业务模块的业务规则。
-- A4 只处理请求追踪和请求级日志；账户、支付等业务事件日志留给板块 C。
-- A5 中 `SecurityConfig` 只检查公共放行路径和异常入口，具体 RBAC 权限调整留给板块 C。
-- A6 只修正公共 OpenAPI 定义；某个业务接口的注解缺失应在对应的 B 或 C 板块提交。
-- 如果某项审查后确认代码无需修改，不创建无意义的空重构提交，只把检查证据和结论写入 A7。
+- A1 可以同时修改响应、错误码和异常处理，因为它们共同决定同一次失败响应；不修改具体业务规则。
+- A2 只处理请求追踪和请求级日志；账户、支付等业务事件日志留给板块 C。
+- A3 中 `SecurityConfig` 只检查公共入口和 OpenAPI 配置，具体 RBAC 调整留给板块 C。
+- 某个业务接口的 Swagger 注解应跟随对应的 B 或 C 业务提交，不集中塞进 A3。
+- A3 中的验收记录只总结 A 板块，不重新混入大范围业务实现修改。
 
 #### 日志级别约定
 
@@ -183,23 +184,19 @@ Sprint 3 分为 A、B、C、D 四个板块。每个板块对应明确的现有�
 | --- | --- | --- | --- | --- |
 | B1 | 复查广告主与分类规则 | `advertiser` 的 Controller、DTO、Service、Mapper 及测试 | 验证唯一性、分类/负责人状态、清除关系、删除规则和分页 | `fix(advertiser): harden profile and category rules` |
 | B2 | 复查投放数据规则 | `delivery` 的 Controller、DTO、Service、Mapper 及测试 | 验证外部编号幂等、指标漏斗、关联状态、修改/删除保护和筛选 | `fix(delivery): harden delivery record rules` |
-| B3 | 统一报表查询与统计口径 | `report` 的查询 DTO、Normalizer、Service、Mapper 及测试 | 使用固定数据集验证概览、日/周/月趋势及两个维度汇总 | `fix(report): standardize report query contracts` |
-| B4 | 建立业务查询性能基线 | 性能数据脚本、核心查询 SQL、执行计划和基线记录 | 在固定环境与数据量下保存列表、筛选及报表的原始结果 | `test(perf): establish business query baselines` |
-| B5 | 优化列表与聚合查询 | `advertiser/delivery/report` Mapper、必要的新 Flyway 迁移及持久化测试 | 使用 B4 的相同条件复测，并执行结果正确性回归 | `perf(report): optimize business queries and indexes` |
-| B6 | 对齐业务模块接口文档与日志 | 三个模块的 Controller 注解、必要业务日志和 OpenAPI 测试 | 核对 Swagger 参数、权限、状态码、错误响应及非敏感日志 | `docs(api): align advertiser delivery report contracts` |
-| B7 | 板块 B 总回归与验收记录 | 三个模块的专项测试、`docs/sprint3-B-business-optimization.md` | 运行模块测试和全量测试，记录规则、性能对比、结果及限制 | `test(sprint3): record module B acceptance` |
+| B3 | 验证并优化报表，完成板块验收 | `report`、相关 Mapper、性能证据、新 Flyway 迁移（如需要）、`docs/sprint3-B-business-optimization.md` 及测试 | 固定数据集验证统计口径，保存执行计划并演示完整业务链路 | `perf(report): finalize business query optimization` |
 
-建议执行顺序为 B1 → B2 → B3 → B4 → B5 → B6 → B7。先确认三个模块的功能正确性，再建立性能基线和实施优化，最后统一 Swagger、日志和验收文档。
+建议执行顺序为 B1 → B2 → B3。广告主、投放和报表属于三个不同模块，因此各保留一个实现提交；性能基线、优化、结果验证和板块记录合并在 B3 中。
 
 #### 各提交的边界
 
 - B1 只处理广告主和分类，不混入投放或报表修改。
 - B2 只处理投放数据事实；不隐式修改账户余额或历史资金流水。
-- B3 先固定查询参数和统计口径，不在同一提交中进行索引调优。
-- B4 只建立可复现基线，不提前宣称优化效果。
-- B5 只提交有 B4 证据支持的优化；若需数据库变更，必须新增 Flyway 迁移。
-- B6 只对齐 B 板块接口文档与业务日志，不修改 A 板块公共机制。
-- 未发现问题的小任务不创建无意义代码变更，其检查结论统一归档到 B7。
+- B1、B2 中相关接口注解、业务日志和测试随实现一起提交，不另拆文档提交。
+- B3 必须先记录基线再优化；若执行计划没有问题，只提交统计正确性测试和审查结论，不强行增加索引。
+- 若 B3 需要数据库变更，必须新增 Flyway 迁移，不修改已执行的 `V1`～`V10`。
+- B3 的跨模块演示只用于验收，不重复修改已经稳定的广告主或投放逻辑。
+- 未发现问题的小任务不创建代码提交，其结论统一写入 B3 的板块验收记录。
 
 #### 完成标准
 
@@ -243,25 +240,20 @@ Sprint 3 分为 A、B、C、D 四个板块。每个板块对应明确的现有�
 
 | 编号 | 小任务 | 主要文件范围 | 单独验收方式 | 建议 Commit |
 | --- | --- | --- | --- | --- |
-| C1 | 完善注册、登录与 JWT 安全 | `auth` 的 Controller、Service、Token、Security、DTO 及测试 | 验证 BCrypt、JWT 有效/过期/篡改、账号状态和限流 | `fix(auth): harden authentication boundaries` |
-| C2 | 完善用户状态与 RBAC | `user`、相关 `SecurityConfig` 规则及测试 | 验证角色权限、待审批/禁用账号、最后启用管理员和并发保护 | `fix(user): enforce account and admin invariants` |
-| C3 | 统一账户余额与流水查询 | `account` 查询 Controller、DTO、Service、Mapper 及测试 | 验证账户唯一性、分页筛选、流水顺序、金额精度和权限 | `fix(account): standardize balance and ledger queries` |
-| C4 | 强化消费事务与幂等 | 消费 Service、Mapper、错误码及并发/持久化测试 | 验证原子扣款、余额不足、业务号幂等、归属关系和异常回滚 | `fix(account): harden idempotent consumption` |
-| C5 | 完善充值订单状态机 | 订单 Controller、Service、状态机、Mapper 及测试 | 验证创建、查询、合法迁移、终态保护和金额规则 | `fix(payment): enforce recharge order lifecycle` |
-| C6 | 强化支付回调安全与入账一致性 | 回调验签、模拟入口、回调 Service、Mapper、日志及并发测试 | 验证签名、时间窗口、金额篡改、重复/并发回调和单次入账 | `fix(payment): harden callback idempotency` |
-| C7 | 板块 C 总回归与验收记录 | 四个模块专项测试、`docs/sprint3-C-security-transaction-acceptance.md` | 运行安全、权限、交易及并发测试，记录结果与剩余风险 | `test(sprint3): record module C acceptance` |
+| C1 | 复查认证、用户状态与 RBAC | `auth`、`user`、相关 `SecurityConfig` 及测试 | 验证 BCrypt、JWT、限流、账号状态、角色权限和最后管理员保护 | `fix(security): harden authentication and user access` |
+| C2 | 复查账户、流水与消费事务 | `account` 的 Controller、Service、Mapper、错误码及测试 | 验证余额/流水查询、金额精度、原子扣款、幂等、归属关系和回滚 | `fix(account): harden ledger and consumption consistency` |
+| C3 | 复查支付并完成交易链路验收 | `payment` 的订单、状态机、验签、回调、日志、`docs/sprint3-C-security-transaction-acceptance.md` 及测试 | 验证终态、验签、重复/并发回调，并串联登录、充值、消费和流水 | `fix(payment): finalize transaction consistency` |
 
-建议执行顺序为 C1 → C2 → C3 → C4 → C5 → C6 → C7。认证和用户权限先稳定，随后验证账户查询与消费，再处理订单和回调，最后执行完整交易链路回归。
+建议执行顺序为 C1 → C2 → C3。`auth` 与 `user` 共同决定身份和账号可用性，合并为安全提交；账户读取与消费共享账户/流水事务，合并为账户提交；订单状态机、回调入账和最终交易链路验收合并为支付提交。
 
 #### 各提交的边界
 
-- C1 负责身份认证，不同时调整业务资源的角色权限。
-- C2 负责用户状态和授权规则，不修改账户或支付逻辑。
-- C3 只处理账户及流水的读取契约；余额写入和消费事务放在 C4。
-- C4 只处理消费链路，不复用消费接口实现充值。
-- C5 只固定订单创建、查询和状态机；成功入账与回调幂等放在 C6。
-- C6 必须把订单更新、余额增加、充值流水和回调审计作为一个事务验证。
-- 涉及安全或资金的修改必须在对应提交中附带失败、重复和并发测试。
+- C1 不修改账户或支付逻辑；认证、账号状态和授权测试随提交一起完成。
+- C2 只处理账户域，不复用消费接口实现充值。
+- C3 必须把订单更新、余额增加、充值流水和回调审计作为一个事务验证。
+- C2、C3 涉及资金的修改必须在对应提交中附带失败、重复、回滚和必要的并发测试。
+- C3 的跨模块验收不重新设计认证或账户模型。
+- 未发现问题的小任务不创建代码提交，其结论统一写入 C3 的板块验收记录。
 
 #### 完成标准
 
@@ -297,25 +289,20 @@ Sprint 3 分为 A、B、C、D 四个板块。每个板块对应明确的现有�
 
 | 编号 | 小任务 | 主要文件范围 | 单独验收方式 | 建议 Commit |
 | --- | --- | --- | --- | --- |
-| D1 | 整理代码结构与模块边界 | 全部业务包、公共包及相关测试 | 编译并运行受影响模块测试，确认行为不变、依赖方向清楚 | `refactor(project): clean module boundaries` |
-| D2 | 整理环境与部署配置 | `.env.example`、`.gitignore`、Docker Compose、Profile 配置 | 验证缺失配置会明确失败，样例可用且不含真实密钥 | `chore(config): finalize deployment configuration` |
-| D3 | 完善 README 与运行说明 | `README.md` 和文档入口 | 按文档实际完成环境准备、启动、测试、Swagger 访问和停止 | `docs(readme): complete deployment and operation guide` |
-| D4 | 完成数据库与全量自动化回归 | Flyway 验证、全部测试及 `docs/sprint3-D-test-report.md` | 验证空库迁移、升级路径和不少于 390 项的全量测试 | `test(sprint3): complete final automated regression` |
-| D5 | 完成真实 HTTP Demo 验收 | Demo 数据/脚本、Swagger 核对和 D 板块测试报告 | 演示登录、投放、报表、充值、回调、消费及幂等失败场景 | `test(sprint3): verify final HTTP demo` |
-| D6 | 编写系统总结与优化报告 | `docs/sprint3-optimization-report.md` 及引用证据 | 核对架构、难点、优化、测试、亮点、限制和扩展方向 | `docs(sprint3): add backend optimization report` |
-| D7 | 完成最终交付整理 | README 文档索引、A～D 验收记录和最终仓库检查 | 检查链接、命令、Git 状态、敏感信息和临时产物 | `docs(sprint3): finalize project delivery` |
+| D1 | 完成代码、部署配置和运行文档整理 | 必要模块清理、`.env.example`、Docker Compose、Profile、`README.md` 及测试 | 验证编译、配置安全，并按 README 完成启动、测试和 Swagger 访问 | `chore(project): finalize deployment readiness` |
+| D2 | 完成最终回归与 HTTP Demo | Flyway、全部测试、Demo 数据/脚本、`docs/sprint3-D-test-report.md` | 验证空库迁移、不少于 390 项测试及完整业务演示 | `test(sprint3): complete final system acceptance` |
+| D3 | 完成总结报告与最终交付 | `docs/sprint3-optimization-report.md`、A～D 验收记录和 README 最终索引 | 核对架构、难点、优化证据、限制、链接、Git 状态和临时产物 | `docs(sprint3): finalize project delivery` |
 
-建议执行顺序为 D1 → D2 → D3 → D4 → D5 → D6 → D7。D1 仅做有必要且低风险的整理；D2、D3 先固定实际运行方式；D4、D5 生成最终证据；D6、D7 再基于真实结果完成总结和交付。
+建议执行顺序为 D1 → D2 → D3。代码整理、部署配置和 README 共同服务于“可以按文档运行”，放在一个提交；自动化回归与 HTTP Demo 共同证明系统可交付；总结报告必须基于 D2 的真实结果。
 
 #### 各提交的边界
 
-- D1 不做大规模重写，不把格式化整个仓库与功能修改放进同一提交。
-- D2 只提交配置样例和部署配置，绝不提交本机 `.env` 或真实凭据。
-- D3 中的每条命令都必须实际验证，不能复制已经失效的旧步骤。
-- D4 记录自动化测试和数据库迁移，D5 单独记录真实 HTTP 业务链路。
-- D6 只引用已经生成的代码、测试、日志和执行计划证据，不编造性能或覆盖率数字。
-- D7 不再引入功能变更，只处理最终索引、交付检查和文字一致性。
-- 若 D1 审查后无需代码整理，将结论写入 D7，不创建只为“有提交”而产生的改动。
+- D1 不做大规模重写，不格式化整个仓库；绝不提交本机 `.env` 或真实凭据。
+- D1 中 README 的每条命令都必须实际验证，不能复制已经失效的旧步骤。
+- D2 同时记录自动化测试、数据库迁移和真实 HTTP 链路，但失败修复应回到对应 A、B、C 提交处理。
+- D3 只引用已经生成的代码、测试、日志和执行计划证据，不编造性能或覆盖率数字。
+- D3 不再引入功能变更，只处理总结、文档索引和最终一致性。
+- 若 D1 审查后无需整理，将结论写入 D3，不创建只为“有提交”而产生的改动。
 
 #### 本周产出
 
