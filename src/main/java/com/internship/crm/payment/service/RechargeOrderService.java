@@ -10,6 +10,7 @@ import com.internship.crm.payment.entity.RechargeOrder;
 import com.internship.crm.payment.entity.RechargeOrderStatus;
 import com.internship.crm.payment.exception.PaymentErrorCode;
 import com.internship.crm.payment.mapper.RechargeOrderMapper;
+import com.internship.crm.payment.validation.PaymentReferenceRules;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
@@ -24,8 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class RechargeOrderService {
 
     private static final Logger log = LoggerFactory.getLogger(RechargeOrderService.class);
-    private static final String ORDER_NO_PATTERN = "[A-Za-z0-9._:-]+";
-
     private final RechargeOrderMapper rechargeOrderMapper;
     private final AdvertiserAccountMapper accountMapper;
     private final AdvertiserMapper advertiserMapper;
@@ -70,7 +69,7 @@ public class RechargeOrderService {
 
     @Transactional(readOnly = true)
     public RechargeOrderResponse findByOrderNo(String rawOrderNo) {
-        String orderNo = normalizeOrderNo(rawOrderNo);
+        String orderNo = PaymentReferenceRules.normalizeOrderNo(rawOrderNo);
         RechargeOrder order = rechargeOrderMapper.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(PaymentErrorCode.ORDER_NOT_FOUND));
         AdvertiserAccount account = accountMapper.selectById(order.getAdvertiserAccountId());
@@ -110,16 +109,4 @@ public class RechargeOrderService {
         }
     }
 
-    private String normalizeOrderNo(String orderNo) {
-        if (orderNo == null) {
-            throw new BusinessException(PaymentErrorCode.INVALID_ORDER_NO);
-        }
-        String normalized = orderNo.trim();
-        if (normalized.isEmpty()
-                || normalized.length() > 64
-                || !normalized.matches(ORDER_NO_PATTERN)) {
-            throw new BusinessException(PaymentErrorCode.INVALID_ORDER_NO);
-        }
-        return normalized;
-    }
 }

@@ -167,6 +167,19 @@ class MockPaymentSimulationServiceTest {
     }
 
     @Test
+    @DisplayName("含非法字符的订单号在访问数据库前被拒绝")
+    void unsafeOrderNumberIsRejectedBeforeDatabaseAccess() {
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> simulationService.simulate(
+                        "RCH-INVALID/ORDER",
+                        request(MockPaymentOutcome.FAILED)));
+
+        assertSame(PaymentErrorCode.INVALID_ORDER_NO, exception.errorCode());
+        verifyNoInteractions(rechargeOrderMapper, paymentProcessor, referenceGenerator);
+    }
+
+    @Test
     @DisplayName("状态更新未影响一行时返回明确冲突且不查询账户")
     void missingUpdateIsRejectedAsConflict() {
         RechargeOrder order = pendingOrder();

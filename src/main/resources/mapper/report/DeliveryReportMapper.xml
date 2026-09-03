@@ -37,8 +37,10 @@
                 0.00
             ) AS cpc
         FROM advertising_delivery_records record
-        JOIN advertising_types advertising_type
-          ON advertising_type.id = record.advertising_type_id
+        <if test="criteria.advertisingTypeCode != null">
+            JOIN advertising_types advertising_type
+              ON advertising_type.id = record.advertising_type_id
+        </if>
         <include refid="deliveryReportFilters"/>
     </select>
 
@@ -66,8 +68,10 @@
                 0.00
             ) AS cpc
         FROM advertising_delivery_records record
-        JOIN advertising_types advertising_type
-          ON advertising_type.id = record.advertising_type_id
+        <if test="criteria.advertisingTypeCode != null">
+            JOIN advertising_types advertising_type
+              ON advertising_type.id = record.advertising_type_id
+        </if>
         <include refid="deliveryReportFilters"/>
         GROUP BY 1
         ORDER BY 1
@@ -96,8 +100,10 @@
             ) AS cpc
         FROM advertising_delivery_records record
         JOIN advertisers advertiser ON advertiser.id = record.advertiser_id
-        JOIN advertising_types advertising_type
-          ON advertising_type.id = record.advertising_type_id
+        <if test="criteria.advertisingTypeCode != null">
+            JOIN advertising_types advertising_type
+              ON advertising_type.id = record.advertising_type_id
+        </if>
         <include refid="deliveryReportFilters"/>
         GROUP BY advertiser.id, advertiser.name
         ORDER BY
@@ -122,8 +128,10 @@
     <select id="countByAdvertiser" resultType="long">
         SELECT COUNT(DISTINCT record.advertiser_id)
         FROM advertising_delivery_records record
-        JOIN advertising_types advertising_type
-          ON advertising_type.id = record.advertising_type_id
+        <if test="criteria.advertisingTypeCode != null">
+            JOIN advertising_types advertising_type
+              ON advertising_type.id = record.advertising_type_id
+        </if>
         <include refid="deliveryReportFilters"/>
     </select>
 

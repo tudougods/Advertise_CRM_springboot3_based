@@ -1,6 +1,7 @@
 package com.internship.crm.payment.dto.request;
 
 import com.internship.crm.payment.entity.MockPaymentOutcome;
+import com.internship.crm.payment.validation.PaymentReferenceRules;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -14,14 +15,18 @@ import java.math.BigDecimal;
 @Schema(description = "本地模拟支付平台回调")
 public record MockPaymentCallbackRequest(
         @NotBlank(message = "回调事件编号不能为空")
-        @Size(max = 100, message = "回调事件编号长度不能超过 100")
-        @Pattern(regexp = "[A-Za-z0-9._:-]+", message = "回调事件编号格式不合法")
+        @Size(max = PaymentReferenceRules.EXTERNAL_REFERENCE_MAX_LENGTH,
+                message = "回调事件编号长度不能超过 100")
+        @Pattern(regexp = PaymentReferenceRules.SAFE_REFERENCE_PATTERN,
+                message = "回调事件编号格式不合法")
         @Schema(example = "evt_20260827_0001")
         String eventId,
 
         @NotBlank(message = "充值订单号不能为空")
-        @Size(max = 64, message = "充值订单号长度不能超过 64")
-        @Pattern(regexp = "[A-Za-z0-9._:-]+", message = "充值订单号格式不合法")
+        @Size(max = PaymentReferenceRules.ORDER_NO_MAX_LENGTH,
+                message = "充值订单号长度不能超过 64")
+        @Pattern(regexp = PaymentReferenceRules.SAFE_REFERENCE_PATTERN,
+                message = "充值订单号格式不合法")
         @Schema(example = "R202608270001")
         String orderNo,
 
@@ -39,8 +44,10 @@ public record MockPaymentCallbackRequest(
         @NotNull(message = "支付结果不能为空")
         MockPaymentOutcome outcome,
 
-        @Size(max = 100, message = "支付平台交易号长度不能超过 100")
-        @Pattern(regexp = "[A-Za-z0-9._:-]*", message = "支付平台交易号格式不合法")
+        @Size(max = PaymentReferenceRules.EXTERNAL_REFERENCE_MAX_LENGTH,
+                message = "支付平台交易号长度不能超过 100")
+        @Pattern(regexp = PaymentReferenceRules.SAFE_REFERENCE_PATTERN,
+                message = "支付平台交易号格式不合法")
         @Schema(example = "mock_txn_20260827_0001")
         String providerTransactionNo) {
 }

@@ -138,6 +138,29 @@ class AdvertisingPersistenceTest {
     }
 
     @Test
+    @DisplayName("V11 为投放组合筛选和稳定排序创建匹配索引")
+    void v11CreatesCompositeDeliveryQueryIndex() {
+        MigrationInfo migration = Arrays.stream(flyway.info().applied())
+                .filter(info -> info.getVersion() != null)
+                .filter(info -> "11".equals(info.getVersion().getVersion()))
+                .findFirst()
+                .orElseThrow();
+        String indexDefinition = jdbcTemplate.queryForObject("""
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'advertising_delivery_records'
+                  AND indexname = 'idx_delivery_advertiser_type_date_id'
+                """, String.class);
+
+        assertAll(
+                () -> assertEquals(MigrationState.SUCCESS, migration.getState()),
+                () -> assertNotNull(indexDefinition),
+                () -> assertTrue(indexDefinition.contains(
+                        "(advertiser_id, advertising_type_id, record_date DESC, id DESC)")));
+    }
+
+    @Test
     @DisplayName("Mapper 可以按编码查询类型并完整持久化投放记录")
     void mappersPersistAndReadAdvertisingRecord() {
         AdvertiserResponse advertiser = createAdvertiser();
