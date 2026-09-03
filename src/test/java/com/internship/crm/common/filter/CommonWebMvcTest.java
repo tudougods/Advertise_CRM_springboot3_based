@@ -36,7 +36,10 @@ import com.internship.crm.auth.token.JwtTokenService;
 import com.internship.crm.testsupport.ReadableTestResultExtension;
 import com.internship.crm.user.service.UserService;
 
-@WebMvcTest(controllers = CommonWebTestController.class)
+@WebMvcTest(controllers = {
+        CommonWebTestController.class,
+        CommonMethodValidationTestController.class
+})
 @Import({
         GlobalExceptionHandler.class,
         RequestLoggingFilter.class,
@@ -104,6 +107,47 @@ class CommonWebMvcTest {
 
         assertRequestIdIsConsistent(result);
         assertFalse(result.getResponse().getContentAsString().contains("JsonParseException"));
+    }
+
+    @Test
+    @DisplayName("缺少必填查询参数返回带字段信息的统一 400")
+    void missingRequiredParameterReturnsFieldValidationError() throws Exception {
+        mockMvc.perform(get("/test/common/required-parameter"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[0].field").value("query"))
+                .andExpect(jsonPath("$.data[0].message").value("缺少必填参数"));
+    }
+
+    @Test
+    @DisplayName("Spring 方法参数校验返回具体字段而不是空错误详情")
+    void handlerMethodValidationReturnsFieldDetails() throws Exception {
+        mockMvc.perform(get("/test/method-validation").param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[0].field").value("page"))
+                .andExpect(jsonPath("$.data[0].message").value("页码必须为正数"));
+    }
+
+    @Test
+    @DisplayName("不支持的 HTTP 方法返回统一 405 而不是 500")
+    void unsupportedMethodReturnsMethodNotAllowed() throws Exception {
+        mockMvc.perform(post("/test/common/success"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("COMMON_METHOD_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.message").value("请求方法不支持"));
+    }
+
+    @Test
+    @DisplayName("不支持的媒体类型返回统一 415 而不是 500")
+    void unsupportedMediaTypeReturnsSafeResponse() throws Exception {
+        mockMvc.perform(post("/test/common/validate")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("sensitive payload"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("COMMON_UNSUPPORTED_MEDIA_TYPE"))
+                .andExpect(jsonPath("$.message").value("请求媒体类型不支持"))
+                .andExpect(jsonPath("$.data").doesNotExist());
     }
 
     @Test

@@ -191,6 +191,12 @@ class ErrorCodeContractTest {
                 PaymentErrorCode.CALLBACK_AMOUNT_MISMATCH,
                 PaymentErrorCode.RECHARGE_PROCESSING_CONFLICT);
 
+        register(statuses, HttpStatus.METHOD_NOT_ALLOWED,
+                CommonErrorCode.METHOD_NOT_ALLOWED);
+
+        register(statuses, HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                CommonErrorCode.UNSUPPORTED_MEDIA_TYPE);
+
         register(statuses, HttpStatus.TOO_MANY_REQUESTS,
                 AuthErrorCode.RATE_LIMITED);
 

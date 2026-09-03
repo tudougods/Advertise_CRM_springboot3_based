@@ -8,10 +8,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 
 import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.common.exception.CommonErrorCode;
@@ -28,6 +30,11 @@ public class CommonWebTestController {
     @GetMapping("/success")
     ApiResponse<Map<String, String>> success() {
         return ApiResponse.success(Map.of("name", "crm"));
+    }
+
+    @GetMapping("/required-parameter")
+    ApiResponse<String> requiredParameter(@RequestParam String query) {
+        return ApiResponse.success(query);
     }
 
     @PostMapping("/validate")
@@ -51,5 +58,16 @@ public class CommonWebTestController {
     }
 
     record TestRequest(@NotBlank(message = "名称不能为空") String name) {
+    }
+}
+
+@RestController
+@RequestMapping("/test/method-validation")
+class CommonMethodValidationTestController {
+
+    @GetMapping
+    ApiResponse<Integer> validateMethodParameter(
+            @Positive(message = "页码必须为正数") @RequestParam int page) {
+        return ApiResponse.success(page);
     }
 }
