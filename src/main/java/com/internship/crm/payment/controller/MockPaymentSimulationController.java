@@ -4,6 +4,7 @@ import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.payment.dto.request.SimulateRechargePaymentRequest;
 import com.internship.crm.payment.dto.response.RechargeOrderResponse;
 import com.internship.crm.payment.service.MockPaymentSimulationService;
+import com.internship.crm.payment.validation.PaymentReferenceRules;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -45,8 +46,10 @@ public class MockPaymentSimulationController {
     })
     public ApiResponse<RechargeOrderResponse> simulate(
             @NotBlank(message = "充值订单号不能为空")
-            @Size(max = 64, message = "充值订单号不能超过 64 个字符")
-            @Pattern(regexp = "[A-Za-z0-9._:-]+", message = "充值订单号格式不合法")
+            @Size(max = PaymentReferenceRules.ORDER_NO_MAX_LENGTH,
+                    message = "充值订单号不能超过 64 个字符")
+            @Pattern(regexp = PaymentReferenceRules.SAFE_REFERENCE_PATTERN,
+                    message = "充值订单号格式不合法")
             @PathVariable String orderNo,
             @Valid @RequestBody SimulateRechargePaymentRequest request) {
         return ApiResponse.success(simulationService.simulate(orderNo, request));
