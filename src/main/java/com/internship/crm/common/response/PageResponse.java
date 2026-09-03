@@ -25,6 +25,12 @@ public record PageResponse<T>(
         if (totalPages != calculateTotalPages(total, size)) {
             throw new IllegalArgumentException("totalPages does not match total and size");
         }
+        if (items.size() > size) {
+            throw new IllegalArgumentException("items must not exceed page size");
+        }
+        if (items.size() > total) {
+            throw new IllegalArgumentException("items must not exceed total");
+        }
     }
 
     public static <T> PageResponse<T> of(List<T> items, long page, long size, long total) {
