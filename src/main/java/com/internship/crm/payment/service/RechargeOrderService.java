@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RechargeOrderService {
 
     private static final Logger log = LoggerFactory.getLogger(RechargeOrderService.class);
+    private static final String ORDER_NO_PATTERN = "[A-Za-z0-9._:-]+";
 
     private final RechargeOrderMapper rechargeOrderMapper;
     private final AdvertiserAccountMapper accountMapper;
@@ -114,7 +115,9 @@ public class RechargeOrderService {
             throw new BusinessException(PaymentErrorCode.INVALID_ORDER_NO);
         }
         String normalized = orderNo.trim();
-        if (normalized.isEmpty() || normalized.length() > 64) {
+        if (normalized.isEmpty()
+                || normalized.length() > 64
+                || !normalized.matches(ORDER_NO_PATTERN)) {
             throw new BusinessException(PaymentErrorCode.INVALID_ORDER_NO);
         }
         return normalized;

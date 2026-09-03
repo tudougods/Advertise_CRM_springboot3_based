@@ -226,9 +226,10 @@ class DeliveryReportSecurityMvcTest {
 
         mockMvc.perform(get("/api/v1/reports/delivery/by-advertiser")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-oversized-page")
-                        .param("size", "101"))
+                .param("size", "101"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[0].field").value("size"));
         verify(deliveryReportService, never()).byAdvertiser(
                 any(), anyLong(), anyLong(), any(), any());
     }

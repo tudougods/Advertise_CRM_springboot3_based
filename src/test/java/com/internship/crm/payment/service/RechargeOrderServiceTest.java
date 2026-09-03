@@ -206,6 +206,7 @@ class RechargeOrderServiceTest {
         return Stream.of(
                 Arguments.of(null, "订单号不能为空"),
                 Arguments.of("   ", "订单号不能为空白"),
+                Arguments.of("RCH-INVALID/ORDER", "订单号不能包含路径或控制字符"),
                 Arguments.of("X".repeat(65), "订单号不能超过数据库字段长度"));
     }
 

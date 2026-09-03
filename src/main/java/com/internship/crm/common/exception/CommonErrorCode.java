@@ -23,6 +23,14 @@ public enum CommonErrorCode implements ErrorCode {
             "COMMON_CONFLICT",
             "请求与当前资源状态冲突",
             HttpStatus.CONFLICT),
+    METHOD_NOT_ALLOWED(
+            "COMMON_METHOD_NOT_ALLOWED",
+            "请求方法不支持",
+            HttpStatus.METHOD_NOT_ALLOWED),
+    UNSUPPORTED_MEDIA_TYPE(
+            "COMMON_UNSUPPORTED_MEDIA_TYPE",
+            "请求媒体类型不支持",
+            HttpStatus.UNSUPPORTED_MEDIA_TYPE),
     INTERNAL_ERROR(
             "COMMON_INTERNAL_ERROR",
             "服务器内部错误",

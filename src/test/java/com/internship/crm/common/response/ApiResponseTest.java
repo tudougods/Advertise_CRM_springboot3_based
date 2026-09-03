@@ -4,8 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
@@ -57,5 +60,61 @@ class ApiResponseTest {
                 () -> assertEquals("请求与当前资源状态冲突", response.message()),
                 () -> assertEquals(details, response.data()),
                 () -> assertNotNull(response.timestamp()));
+    }
+
+    @Test
+    @DisplayName("无数据成功响应仍保留完整统一字段")
+    void successWithoutDataKeepsTheStableEnvelope() {
+        MDC.put("requestId", "request-no-data");
+
+        ApiResponse<Void> response = ApiResponse.successWithoutData();
+
+        assertAll(
+                () -> assertTrue(response.success()),
+                () -> assertEquals(ApiResponse.SUCCESS_CODE, response.code()),
+                () -> assertEquals(ApiResponse.SUCCESS_MESSAGE, response.message()),
+                () -> assertNull(response.data()),
+                () -> assertNotNull(response.timestamp()),
+                () -> assertEquals("request-no-data", response.requestId()));
+    }
+
+    @Test
+    @DisplayName("响应拒绝空白结果码和消息")
+    void rejectsBlankCodeAndMessage() {
+        Instant now = Instant.now();
+
+        assertAll(
+                () -> assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new ApiResponse<>(false, " ", "请求失败", null, now, null)),
+                () -> assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new ApiResponse<>(false, "COMMON_BAD_REQUEST", " ", null, now, null)));
+    }
+
+    @Test
+    @DisplayName("响应拒绝成功标志与结果码矛盾")
+    void rejectsInconsistentSuccessAndCode() {
+        Instant now = Instant.now();
+
+        assertAll(
+                () -> assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new ApiResponse<>(
+                                true,
+                                CommonErrorCode.BAD_REQUEST.code(),
+                                CommonErrorCode.BAD_REQUEST.message(),
+                                null,
+                                now,
+                                null)),
+                () -> assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new ApiResponse<>(
+                                false,
+                                ApiResponse.SUCCESS_CODE,
+                                ApiResponse.SUCCESS_MESSAGE,
+                                null,
+                                now,
+                                null)));
     }
 }

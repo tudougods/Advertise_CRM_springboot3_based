@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.validation.annotation.Validated;
@@ -45,6 +46,7 @@ public class MockPaymentSimulationController {
     public ApiResponse<RechargeOrderResponse> simulate(
             @NotBlank(message = "充值订单号不能为空")
             @Size(max = 64, message = "充值订单号不能超过 64 个字符")
+            @Pattern(regexp = "[A-Za-z0-9._:-]+", message = "充值订单号格式不合法")
             @PathVariable String orderNo,
             @Valid @RequestBody SimulateRechargePaymentRequest request) {
         return ApiResponse.success(simulationService.simulate(orderNo, request));
