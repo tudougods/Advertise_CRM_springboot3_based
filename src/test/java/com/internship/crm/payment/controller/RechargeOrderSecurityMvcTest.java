@@ -157,6 +157,19 @@ class RechargeOrderSecurityMvcTest {
     }
 
     @Test
+    @DisplayName("非法订单号格式返回统一 400 且不调用 Service")
+    void invalidOrderNumberFormatIsRejected() throws Exception {
+        authorize("operator-invalid-order", user(2L, UserRole.OPERATOR));
+
+        mockMvc.perform(get("/api/v1/payment-orders/{orderNo}", "RCH-$INVALID")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer operator-invalid-order"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data[0].field").value("findByOrderNo.orderNo"));
+        verifyNoInteractions(rechargeOrderService);
+    }
+
+    @Test
     @DisplayName("订单不存在时返回明确的 404 业务错误")
     void missingOrderReturnsNotFound() throws Exception {
         authorize("operator-missing-order", user(2L, UserRole.OPERATOR));
