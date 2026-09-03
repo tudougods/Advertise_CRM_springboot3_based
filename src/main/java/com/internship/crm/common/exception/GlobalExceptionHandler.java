@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
@@ -53,7 +54,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
         ErrorCode errorCode = exception.errorCode();
-        log.warn("Business request rejected: code={}", errorCode.code());
+        logBusinessException(errorCode, exception);
         return response(errorCode, exception.getMessage(), null);
     }
 
@@ -188,6 +189,25 @@ public class GlobalExceptionHandler {
         return Comparator.comparing(
                         (FieldValidationError error) -> Objects.requireNonNull(error).field())
                 .thenComparing(error -> Objects.requireNonNull(error).message());
+    }
+
+    private void logBusinessException(ErrorCode errorCode, BusinessException exception) {
+        HttpStatus status = errorCode.status();
+        if (status.is5xxServerError()) {
+            log.error("Business operation failed: code={} status={}",
+                    errorCode.code(), status.value(), exception);
+            return;
+        }
+        if (status == HttpStatus.UNAUTHORIZED
+                || status == HttpStatus.FORBIDDEN
+                || status == HttpStatus.CONFLICT
+                || status == HttpStatus.TOO_MANY_REQUESTS) {
+            log.warn("Business request rejected: code={} status={}",
+                    errorCode.code(), status.value());
+            return;
+        }
+        log.debug("Expected business request rejection: code={} status={}",
+                errorCode.code(), status.value());
     }
 
     private <T> ResponseEntity<ApiResponse<T>> response(ErrorCode errorCode, T data) {
