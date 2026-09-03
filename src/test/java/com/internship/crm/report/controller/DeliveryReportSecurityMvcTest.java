@@ -229,7 +229,7 @@ class DeliveryReportSecurityMvcTest {
                 .param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.data[0].field").value("byAdvertiser.size"));
+                .andExpect(jsonPath("$.data[0].field").value("size"));
         verify(deliveryReportService, never()).byAdvertiser(
                 any(), anyLong(), anyLong(), any(), any());
     }

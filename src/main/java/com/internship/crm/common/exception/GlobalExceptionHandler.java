@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
             ConstraintViolationException exception) {
         List<FieldValidationError> errors = exception.getConstraintViolations().stream()
                 .map(violation -> new FieldValidationError(
-                        violation.getPropertyPath().toString(),
+                        leafPropertyName(violation.getPropertyPath().toString()),
                         violation.getMessage()))
                 .sorted(fieldErrorComparator())
                 .toList();
@@ -125,7 +125,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
             HttpRequestMethodNotSupportedException exception) {
-        return response(CommonErrorCode.METHOD_NOT_ALLOWED, null);
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(CommonErrorCode.METHOD_NOT_ALLOWED.status());
+        if (exception.getSupportedHttpMethods() != null) {
+            response.allow(exception.getSupportedHttpMethods().toArray(org.springframework.http.HttpMethod[]::new));
+        }
+        return response.body(ApiResponse.failure(
+                CommonErrorCode.METHOD_NOT_ALLOWED.code(),
+                CommonErrorCode.METHOD_NOT_ALLOWED.message(),
+                null));
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -170,6 +177,11 @@ public class GlobalExceptionHandler {
 
     private String parameterName(String discoveredName, int parameterIndex) {
         return discoveredName == null ? "arg" + parameterIndex : discoveredName;
+    }
+
+    private String leafPropertyName(String propertyPath) {
+        int separator = propertyPath.lastIndexOf('.');
+        return separator < 0 ? propertyPath : propertyPath.substring(separator + 1);
     }
 
     private Comparator<FieldValidationError> fieldErrorComparator() {

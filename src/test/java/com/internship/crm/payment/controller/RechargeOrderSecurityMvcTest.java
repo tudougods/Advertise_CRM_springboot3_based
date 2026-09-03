@@ -165,7 +165,7 @@ class RechargeOrderSecurityMvcTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer operator-invalid-order"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("COMMON_VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.data[0].field").value("findByOrderNo.orderNo"));
+                .andExpect(jsonPath("$.data[0].field").value("orderNo"));
         verifyNoInteractions(rechargeOrderService);
     }
 

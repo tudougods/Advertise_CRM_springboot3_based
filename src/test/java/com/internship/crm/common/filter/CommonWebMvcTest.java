@@ -20,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -134,6 +135,7 @@ class CommonWebMvcTest {
     void unsupportedMethodReturnsMethodNotAllowed() throws Exception {
         mockMvc.perform(post("/test/common/success"))
                 .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string(HttpHeaders.ALLOW, "GET"))
                 .andExpect(jsonPath("$.code").value("COMMON_METHOD_NOT_ALLOWED"))
                 .andExpect(jsonPath("$.message").value("请求方法不支持"));
     }
