@@ -216,3 +216,4 @@ Docker 运行时执行：
 - [Sprint 3 开发计划](docs/spring3.md)
 - [Sprint 3 B1 核心接口性能记录](docs/sprint3-B1-performance.md)
 - [Sprint 3 B2 日志分级与安全检查](docs/sprint3-B2-logging.md)
+- [Sprint 3 后端系统总结与优化报告](docs/sprint3-optimization-report.md)
