@@ -1,7 +1,7 @@
 # Advertiser CRM 后端系统总结与优化报告
 
-> 项目：Advertiser CRM Backend  
-> 技术基线：Java 21、Spring Boot 3.5、PostgreSQL 16、MyBatis-Plus、Flyway  
+> 项目：Advertiser CRM Backend
+> 技术基线：Java 21、Spring Boot 3.5、PostgreSQL 16、MyBatis-Plus、Flyway
 > 总结范围：Sprint 1 至 Sprint 3
 
 ## 1. 报告说明
