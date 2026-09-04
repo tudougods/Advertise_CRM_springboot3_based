@@ -1,6 +1,8 @@
 package com.internship.crm.delivery.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -52,4 +54,18 @@ public record CreateAdvertisingDeliveryRecordRequest(
         @Digits(integer = 17, fraction = 2, message = "投放花费最多为 17 位整数和 2 位小数")
         @Schema(example = "300.00")
         BigDecimal spend) {
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    @AssertTrue(message = "点击量不能超过展示量")
+    public boolean isClicksWithinImpressions() {
+        return impressions == null || clicks == null || clicks <= impressions;
+    }
+
+    @JsonIgnore
+    @Schema(hidden = true)
+    @AssertTrue(message = "转化量不能超过点击量")
+    public boolean isConversionsWithinClicks() {
+        return clicks == null || conversions == null || conversions <= clicks;
+    }
 }

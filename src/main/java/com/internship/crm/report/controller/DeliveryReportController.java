@@ -19,6 +19,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Validated
 @RequestMapping("/api/v1/reports/delivery")
 @Tag(name = "投放统计报表", description = "按时间、广告主和广告类型查询投放汇总指标")
 @SecurityRequirement(name = "bearerAuth")

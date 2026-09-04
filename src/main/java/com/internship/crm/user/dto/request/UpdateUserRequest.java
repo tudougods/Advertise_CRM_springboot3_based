@@ -19,6 +19,7 @@ public record UpdateUserRequest(
         String email,
 
         @Size(min = 8, max = 72, message = "密码长度必须为 8 到 72 个字符")
+        @Pattern(regexp = ".*\\S.*", message = "密码不能为空白")
         @Schema(description = "可选的新密码；响应中不会返回")
         String password,
 

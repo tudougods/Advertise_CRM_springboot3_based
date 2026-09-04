@@ -4,11 +4,13 @@ import com.internship.crm.common.response.ApiResponse;
 import com.internship.crm.payment.dto.request.CreateRechargeOrderRequest;
 import com.internship.crm.payment.dto.response.RechargeOrderResponse;
 import com.internship.crm.payment.service.RechargeOrderService;
+import com.internship.crm.payment.validation.PaymentReferenceRules;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,7 +61,10 @@ public class RechargeOrderController {
     })
     public ApiResponse<RechargeOrderResponse> findByOrderNo(
             @NotBlank(message = "充值订单号不能为空")
-            @Size(max = 64, message = "充值订单号不能超过 64 个字符")
+            @Size(max = PaymentReferenceRules.ORDER_NO_MAX_LENGTH,
+                    message = "充值订单号不能超过 64 个字符")
+            @Pattern(regexp = PaymentReferenceRules.SAFE_REFERENCE_PATTERN,
+                    message = "充值订单号格式不合法")
             @PathVariable String orderNo) {
         return ApiResponse.success(rechargeOrderService.findByOrderNo(orderNo));
     }

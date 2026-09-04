@@ -4,6 +4,7 @@ import com.internship.crm.common.exception.BusinessException;
 import com.internship.crm.payment.entity.RechargeOrder;
 import com.internship.crm.payment.entity.RechargeOrderStatus;
 import com.internship.crm.payment.exception.PaymentErrorCode;
+import com.internship.crm.payment.validation.PaymentReferenceRules;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
@@ -35,7 +36,8 @@ public class RechargeOrderStateMachine {
 
         OffsetDateTime normalizedTime = transitionTime.truncatedTo(ChronoUnit.MICROS);
         if (targetStatus == RechargeOrderStatus.SUCCESS) {
-            order.setProviderTransactionNo(normalizeProviderTransactionNo(providerTransactionNo));
+            order.setProviderTransactionNo(
+                    PaymentReferenceRules.normalizeProviderTransactionNo(providerTransactionNo));
             order.setPaidAt(normalizedTime);
         } else {
             order.setProviderTransactionNo(null);
@@ -45,14 +47,4 @@ public class RechargeOrderStateMachine {
         order.setUpdatedAt(normalizedTime);
     }
 
-    private String normalizeProviderTransactionNo(String providerTransactionNo) {
-        if (providerTransactionNo == null) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PROVIDER_TRANSACTION_NO);
-        }
-        String normalized = providerTransactionNo.trim();
-        if (normalized.isEmpty() || normalized.length() > 100) {
-            throw new BusinessException(PaymentErrorCode.INVALID_PROVIDER_TRANSACTION_NO);
-        }
-        return normalized;
-    }
 }

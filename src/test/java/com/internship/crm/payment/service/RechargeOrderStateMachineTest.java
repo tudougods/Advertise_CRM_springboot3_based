@@ -147,6 +147,7 @@ class RechargeOrderStateMachineTest {
         return Stream.of(
                 Arguments.of(null, "平台交易号不能为空"),
                 Arguments.of("   ", "平台交易号不能为空白"),
+                Arguments.of("MOCK/INVALID", "平台交易号不能包含路径字符"),
                 Arguments.of("X".repeat(101), "平台交易号不能超过数据库字段长度"));
     }
 
