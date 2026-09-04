@@ -154,3 +154,144 @@ Sprint 2 增加投放数据、统计报表、广告主账户、消费流水、�
 ### 6.3 Sprint 3：工程化收尾
 
 Sprint 3 不增加业务模块，围绕现有系统完成统一响应与错误码审核、参数校验、全局异常处理、核心 SQL 性能优化、日志分级、重复逻辑整理、项目结构说明和运行文档。数据库增加 V11 组合索引，报表查询按条件移除无用 JOIN；最终通过自动化回归和容器运行验证确认优化没有改变业务行为。
+
+## 7. 核心技术难点与解决方案
+
+### 7.1 认证、权限与账号状态
+
+#### 问题
+
+只验证 JWT 签名并不能保证当前请求仍然有效。用户可能在 Token 有效期内被禁用或保持待审批状态；管理员变更还必须保证系统始终保留至少一个可用管理员。公开登录和注册端点同时面临重复尝试风险。
+
+#### 方案
+
+- 密码只保存 BCrypt 摘要，登录失败统一返回凭据错误，避免泄露用户名是否存在。
+- JWT 使用 Base64 编码的至少 32 字节 HMAC 密钥，并通过 Bearer Token 传递。
+- 每次认证请求解析 Token 后重新读取用户，只有数据库状态为 `ACTIVE` 才建立 SecurityContext；角色也以数据库当前值为准。
+- Controller 使用 Spring Security 声明 ADMIN/OPERATOR 权限，401 和 403 使用统一 JSON 响应。
+- 公开注册固定创建 `PENDING OPERATOR`，不允许客户端自行创建管理员。
+- 降级、禁用或删除管理员前，数据库锁定启用管理员集合；Service 和数据库触发器共同保护最后一个 `ACTIVE ADMIN`。
+- 登录按“客户端 IP + 用户名”限流，注册按客户端 IP 限流；成功登录清除对应失败计数。
+
+#### 验证
+
+- Web 测试覆盖匿名访问、无效 Token、待审批/禁用账号、ADMIN/OPERATOR 权限和统一 401/403 响应。
+- [管理员约束测试](../src/test/java/com/internship/crm/user/service/UserAdminInvariantPersistenceTest.java)验证最后一个管理员不能被删除或禁用。
+- [管理员并发锁测试](../src/test/java/com/internship/crm/user/service/UserAdminLockPersistenceTest.java)验证并发状态变更会被串行化。
+- [认证限流测试](../src/test/java/com/internship/crm/auth/service/AuthRateLimiterTest.java)验证窗口到期、不同维度隔离和超限行为。
+
+### 7.2 统计口径与动态聚合查询
+
+#### 问题
+
+展示量、点击量、转化量和花费不能按单行比率再取平均，必须先汇总分子分母后重新计算。查询同时支持可选日期、广告主、广告类型、时间粒度、排序和分页，若直接拼接参数会产生口径不一致和 SQL 注入风险。
+
+#### 方案
+
+- 未提供日期时使用业务时区内包含当天的最近 30 天；显式日期必须成对提供、顺序正确且跨度不超过 366 天。
+- 时间粒度、排序字段和排序方向使用枚举白名单，再映射为受控 SQL 片段。
+- 总览、趋势和多维统计均在 PostgreSQL 聚合；CTR、CVR、CPC 使用汇总结果计算，并通过 `NULLIF` 与 `COALESCE` 处理零分母。
+- 广告主报表的数据查询和 COUNT 复用同一组过滤条件，保证分页总数一致。
+- 只有存在广告类型筛选时才 JOIN `advertising_types`，避免无条件读取无用字典表。
+- 趋势按自然日、以周一为起点的自然周或自然月聚合，并使用稳定排序。
+
+#### 验证
+
+- [查询条件测试](../src/test/java/com/internship/crm/report/service/DeliveryReportQueryNormalizerTest.java)覆盖默认范围、业务时区、空白类型、倒序和超大日期范围。
+- [聚合 SQL 测试](../src/test/java/com/internship/crm/report/mapper/DeliveryReportMapperTest.java)使用固定数据核对总量、比率、筛选和零分母结果。
+- [趋势测试](../src/test/java/com/internship/crm/report/mapper/DeliveryReportTrendMapperTest.java)验证日、周、月边界。
+- [维度报表测试](../src/test/java/com/internship/crm/report/mapper/DeliveryReportDimensionMapperTest.java)验证排序白名单、分页总数和广告类型汇总。
+
+### 7.3 账户余额、不可变流水与并发扣款
+
+#### 问题
+
+“先查询余额、再扣款”在并发请求下会产生超扣；余额和流水若分开提交，会出现账实不一致。重复请求还可能使用同一业务号扣款多次，投放记录换绑也可能破坏流水归属。
+
+#### 方案
+
+- 广告主与账户保持一对一，余额使用 `NUMERIC(19,2)` 且数据库禁止负数。
+- 消费 SQL 通过 `UPDATE ... WHERE balance >= amount RETURNING balance` 原子判断并扣款。
+- 余额更新和 `CONSUMPTION` 流水插入位于同一事务；后续校验或写流水失败时自动回滚扣款。
+- `business_no` 全局唯一，写入使用条件插入处理并发重复请求。
+- 流水保存正金额、方向和 `balance_after`，不提供修改或删除接口。
+- 消费关联投放记录时锁定该记录并校验广告主归属；数据库触发器继续防止绕过 Service 的跨广告主关联和结算后换绑。
+
+#### 验证
+
+- [账户事务测试](../src/test/java/com/internship/crm/account/service/AdvertiserAccountConsumptionPersistenceTest.java)覆盖余额不足、事务回滚、相同业务号竞争、两个消费竞争同一余额和账实一致性。
+- [账户业务规则测试](../src/test/java/com/internship/crm/account/service/AdvertiserAccountConsumptionServiceTest.java)覆盖金额精度、投放归属、重复业务号和并发冲突转换。
+- 数据库迁移测试验证余额非负、业务号唯一、流水引用类型以及跨广告主一致性约束。
+
+### 7.4 支付回调验签、状态机与幂等
+
+#### 问题
+
+支付回调是公开入口，不能依赖用户 JWT。系统必须确认请求来自持有共享密钥的调用方，拒绝重放和篡改，并处理相同事件的重复或并发到达。订单、余额、流水和回调审计还必须保持一致。
+
+#### 方案
+
+- 使用 `HMAC-SHA256(secret, timestamp + "." + rawBody)` 验签，比较时采用常量时间算法。
+- 验签发生在 JSON 解析前；请求体限制为 16 KiB，时间戳必须位于配置的容忍窗口内。
+- 密钥必须是 Base64 编码且解码后至少 32 字节；服务端只保存回调载荷 SHA-256 摘要，不保存共享密钥或原始签名。
+- JSON 拒绝未知字段和尾随内容，验签后继续校验订单号、事件号、广告主、金额、结果与平台交易号。
+- 订单只允许 `PENDING -> SUCCESS/FAILED/CLOSED`，终态不能回退。
+- `provider_event_id`、`business_no`、`recharge_order_id` 和平台交易号上的唯一约束形成多层幂等保护。
+- 处理成功时，在同一事务内更新订单、增加余额、写入充值流水并完成回调审计。
+- 已处理的相同事件和相同载荷返回幂等确认；相同事件号但不同摘要返回冲突。可信但业务不一致的回调使用独立事务保留 `REJECTED` 审计。
+
+#### 验证
+
+- [HMAC 验签测试](../src/test/java/com/internship/crm/payment/service/PaymentCallbackSignatureServiceTest.java)覆盖格式、密钥强度、请求体大小、时间窗口和原始字节签名。
+- [回调事务测试](../src/test/java/com/internship/crm/payment/service/MockPaymentCallbackPersistenceTest.java)覆盖合法成功/失败、事件并发、重复事件、载荷冲突、业务字段篡改和事务回滚。
+- 回调 Web 测试确认端点无需 JWT，但所有成功和失败仍使用统一 API 错误契约。
+- Profile 隔离测试确认生产环境不注册主动模拟支付 Controller、Service 和平台交易号生成器。
+
+## 8. Sprint 3 工程化优化
+
+### 8.1 统一响应、错误码与异常处理
+
+- 所有业务 Controller 返回 `ApiResponse<T>` 或 `ResponseEntity<ApiResponse<T>>`；分页数据使用 `PageResponse<T>`。
+- 响应固定包含 `success`、`code`、`message`、`data`、`timestamp` 和 `requestId`。
+- 公共错误码使用 `COMMON_`，业务错误码使用所属模块前缀；自动化测试检查全局唯一性、命名格式和精确 HTTP 状态映射。
+- 全局异常处理覆盖参数绑定、Bean Validation、类型转换、非法 JSON、方法不支持、媒体类型、资源不存在、数据库冲突和未知异常。
+- 401/403 由 Spring Security 入口保持相同响应结构；未知异常只向客户端返回安全的 `COMMON_INTERNAL_ERROR`。
+
+### 8.2 参数校验
+
+- DTO 校验必填、长度、格式、数值范围和金额精度，Controller 校验路径 ID、分页上限、日期粒度和排序枚举。
+- 投放漏斗关系在字段同时提供时由 Bean Validation 提前拒绝；局部更新只提供部分指标时，由 Service 合并旧值后再次校验。
+- Service 保留金额、业务编号、状态迁移和跨实体关系等防御性校验，数据库约束继续作为最后保护。
+- 校验错误统一返回字段或对象级规则名称，非法输入在核心业务写入前被拒绝。
+
+### 8.3 核心接口性能
+
+Sprint 3 使用 PostgreSQL 16 和 500,000 条固定投放记录复现优化前后执行计划，详细结果见 [B1 性能优化记录](sprint3-B1-performance.md)：
+
+| 场景 | 优化前 | 优化后 | 结果 |
+| --- | ---: | ---: | --- |
+| 投放组合筛选分页 | 0.418 ms，464 个共享缓冲页 | 0.191 ms，27 个共享缓冲页 | 时间降低 54.3%，缓冲页降低 94.2% |
+| 31 天趋势聚合 | 14.881 ms，Hash Join | 12.061 ms，无无用 JOIN | 时间降低 19.0% |
+
+V11 新增 `(advertiser_id, advertising_type_id, record_date DESC, id DESC)` 组合索引，使常用组合筛选与稳定排序直接匹配索引。报表 SQL 在没有类型条件时不再 JOIN 类型表。优化没有引入缓存，也没有改变接口结果或业务规则；复现脚本位于 [`scripts/sprint3-core-performance.sql`](../scripts/sprint3-core-performance.sql)。
+
+### 8.4 日志、安全与可维护性
+
+- Request ID 过滤器为每个请求生成或接收经过字符和长度限制的追踪 ID，并记录方法、路径、状态和耗时。
+- `ERROR` 用于未知异常和 5xx 故障，`WARN` 用于权限拒绝、冲突和限流，`INFO` 用于请求完成与关键业务状态，普通可预期参数错误使用 `DEBUG`。
+- 请求日志不记录请求体、查询参数、Authorization、密码、JWT、密钥、签名或原始支付载荷；日志检查见 [B2 日志分级记录](sprint3-B2-logging.md)。
+- 支付订单号和平台交易号的格式、长度与规范化逻辑集中到 `PaymentReferenceRules`，消除 Controller 与多个 Service 的重复规则。
+- 项目保持按业务模块分包，复杂报表 SQL 放在 MyBatis XML，事务边界集中在 Service，模块放置规则见 [项目结构说明](project-structure.md)。
+
+## 9. 验证范围与结果
+
+| 验证层次 | 覆盖内容 | 结果 |
+| --- | --- | --- |
+| 单元测试 | DTO 校验、Service 规则、状态机、签名、响应与错误码契约 | 通过 |
+| Web/RBAC 测试 | 路由、参数、401/403、角色权限、统一响应和 OpenAPI | 通过 |
+| PostgreSQL 集成测试 | Flyway、Mapper、约束、触发器、物理分页、聚合 SQL、事务与并发 | 通过 |
+| 性能验证 | 50 万条固定数据、相同环境、`EXPLAIN (ANALYZE, BUFFERS)` 前后对比 | 通过 |
+| 容器验证 | 多阶段镜像构建、Compose 启动、健康检查、OpenAPI、V11 迁移、非 root 用户 | 通过 |
+| 完整回归 | `scripts/test.cmd` 从合并后的 Sprint 3 分支执行 | 420/420 通过 |
+
+测试使用 Testcontainers 启动一次性 PostgreSQL 16，不读写日常开发数据库。性能脚本只能在隔离库 `advertiser_crm_perf` 运行，并通过事务回滚测试数据和临时索引。
