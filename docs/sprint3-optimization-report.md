@@ -1,8 +1,10 @@
-# Advertiser CRM 后端系统总结与优化报告
+# Advertiser CRM Sprint 3 总结与优化过程记录
 
 > 项目：Advertiser CRM Backend
 > 技术基线：Java 21、Spring Boot 3.5、PostgreSQL 16、MyBatis-Plus、Flyway
 > 总结范围：Sprint 1 至 Sprint 3
+
+> 最终正式交付物为覆盖 Sprint 1—Sprint 3 完整开发过程的 Word 文档：[《后端系统总结与优化报告》](后端系统总结与优化报告.docx)。本文保留为 Sprint 3 实施、验证与交付对照的 Markdown 过程记录。
 
 ## 1. 报告说明
 
@@ -367,4 +369,4 @@ Sprint 3 完成了工程化收尾：统一响应与错误语义，补强输入�
 | B 系统优化 | 核心 SQL 性能、日志分级、可读性与可维护性 | 完成 |
 | C 项目整理 | 模块结构、README、部署与运行验证 | 完成 |
 | D 项目总结与复盘 | 业务架构、技术难点、优化、亮点、限制和扩展方向 | 完成 |
-| 最终产出 | `docs/sprint3-optimization-report.md` | 完成 |
+| 最终产出 | `docs/后端系统总结与优化报告.docx` | 完成 |

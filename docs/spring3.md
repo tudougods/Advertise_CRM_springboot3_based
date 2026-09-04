@@ -263,7 +263,7 @@ docs(readme): complete project setup and usage guide
 
 ## 6. 板块 D：项目总结与复盘
 
-板块 D 的内容统一写入 `docs/sprint3-optimization-report.md`，最终形成《后端系统总结与优化报告》。
+板块 D 的过程记录保留在 `docs/sprint3-optimization-report.md`，最终交付物为覆盖 Sprint 1、Sprint 2 和 Sprint 3 完整开发过程的 Word 文档 `docs/后端系统总结与优化报告.docx`。最终报告只设置系统架构总结、核心技术难点分析、优化点说明、项目亮点提炼和未来扩展方向五个主体部分。
 
 ### D1. 从业务角度总结系统设计思路
 
@@ -317,14 +317,12 @@ docs(sprint3): document technical challenges and optimizations
 
 - 提炼项目中具有代表性的业务和技术亮点。
 - 总结统一规范、数据一致性、统计报表和工程化方面的成果。
-- 说明当前项目的已知限制。
 - 提出未来可扩展方向。
-- 完成《后端系统总结与优化报告》的整体检查。
+- 完成 Word 版《后端系统总结与优化报告》的整体检查。
 
 #### 完成标准
 
 - 项目亮点有实际代码或测试支撑。
-- 已知限制描述客观，不隐藏未完成范围。
 - 扩展方向建立在当前架构基础上。
 - 最终报告包含导师要求的全部内容。
 
@@ -379,7 +377,8 @@ docs(sprint3): finalize highlights and future directions
 
 ### 最终产出
 
-- [x] 完成 `docs/sprint3-optimization-report.md`。
+- [x] 完成覆盖 Sprint 1—Sprint 3 完整开发过程的 `docs/后端系统总结与优化报告.docx`。
+- [x] DOCX 已完成渲染和逐页视觉检查。
 - [x] 报告包含系统架构总结。
 - [x] 报告包含核心技术难点分析。
 - [x] 报告包含优化点说明。
